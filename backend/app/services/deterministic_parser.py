@@ -4,11 +4,16 @@ import json
 from typing import Dict, List, Any, Optional
 
 
-def parse_estimate_xlsx(xlsx_path: str) -> dict:
+def parse_estimate_xlsx(xlsx_path: str, sheet_name: str = None) -> dict:
     """Implements the steps above and returns the project-level JSON."""
     
+    # Auto-detect sheet if not provided
+    if sheet_name is None:
+        sheet_name = _find_estimate_sheet(xlsx_path)
+        print(f"Auto-detected estimate sheet: '{sheet_name}'")
+    
     # Step 1 — Read
-    df = pd.read_excel(xlsx_path, sheet_name="Estimate - Shed", header=None)
+    df = pd.read_excel(xlsx_path, sheet_name=sheet_name, header=None)
     df = df.fillna('')
     
     # Step 2 — Find bottom summary rows (scan upward in column C)
@@ -278,3 +283,33 @@ def _slugify(text: str) -> str:
     slug = re.sub(r'[^a-zA-Z0-9\s]', '', text.lower())
     slug = re.sub(r'\s+', '-', slug.strip())
     return slug
+
+
+def _find_estimate_sheet(xlsx_path: str) -> str:
+    """Auto-detect the estimate worksheet"""
+    excel_file = pd.ExcelFile(xlsx_path)
+    
+    # Look for sheets with "estimate" in the name (case-insensitive)
+    estimate_sheets = []
+    for sheet_name in excel_file.sheet_names:
+        if 'estimate' in sheet_name.lower():
+            estimate_sheets.append(sheet_name)
+    
+    if estimate_sheets:
+        # If multiple estimate sheets, prefer the first one
+        selected = estimate_sheets[0]
+        print(f"Found estimate sheets: {estimate_sheets}, selected: '{selected}'")
+        return selected
+    
+    # Fallback: look for sheets with construction keywords
+    keywords = ['budget', 'cost', 'summary', 'bid', 'quote']
+    for sheet_name in excel_file.sheet_names:
+        sheet_lower = sheet_name.lower()
+        if any(keyword in sheet_lower for keyword in keywords):
+            print(f"Using fallback sheet with construction keyword: '{sheet_name}'")
+            return sheet_name
+    
+    # Last resort: use first sheet
+    first_sheet = excel_file.sheet_names[0]
+    print(f"No estimate sheet found, using first sheet: '{first_sheet}'")
+    return first_sheet

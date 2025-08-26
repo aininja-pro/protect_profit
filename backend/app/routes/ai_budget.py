@@ -55,8 +55,8 @@ async def smart_budget_upload(
             temp_file.write(file_content)
         
         try:
-            # Parse with deterministic parser
-            result = parse_estimate_xlsx(temp_file_path)
+            # Parse with deterministic parser using detected sheet
+            result = parse_estimate_xlsx(temp_file_path, recommended_sheet)
         finally:
             # Clean up temp file
             if os.path.exists(temp_file_path):
