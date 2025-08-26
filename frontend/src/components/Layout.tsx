@@ -16,19 +16,16 @@ export default function Layout({ children }: LayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-6">
               <img 
                 src="/team-builders-logo.png" 
                 alt="TeamBuilders" 
                 className="h-10 w-auto"
               />
-              <div>
-                <h1 className="text-xl font-bold text-white">
-                  TeamBuilders
-                </h1>
-                <p className="text-sm text-primary font-medium">
+              <div className="flex items-center">
+                <h1 className="text-lg font-semibold text-primary">
                   Operation Protect Profit
-                </p>
+                </h1>
               </div>
             </div>
             

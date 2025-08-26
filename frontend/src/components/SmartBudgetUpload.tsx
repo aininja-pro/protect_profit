@@ -92,7 +92,7 @@ export default function SmartBudgetUpload() {
               <p className="text-3xl font-bold text-yellow-600">
                 ${result.grand_total?.toLocaleString() || 'N/A'}
               </p>
-              <p className="text-sm text-gray-600">Total Value</p>
+              <p className="text-sm text-gray-600">Job Total</p>
             </div>
           </div>
 
