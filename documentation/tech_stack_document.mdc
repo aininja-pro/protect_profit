@@ -1,0 +1,139 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Tech Stack Document
+
+This document explains the technology choices for **Operation Protect Profit**, our MVP web app for comparing construction subcontractor bids. It’s written in everyday language so anyone can understand why we picked each tool and how they work together.
+
+## 1. Frontend Technologies
+
+Our user interface is the part of the app you see and click on. We chose tools that help us build a clean, responsive design quickly:
+
+- **React**  
+  A popular JavaScript library for building interactive user interfaces. React lets us split the app into reusable “components” (like cards, tables, tabs), which makes development faster and easier to maintain.
+
+- **Tailwind CSS**  
+  A utility-first styling framework that gives us ready-made CSS classes (for margins, colors, layouts, etc.). This helps us build a consistent look-and-feel without writing a lot of custom CSS.
+
+- **shadcn/ui**  
+  A collection of pre-built React components (cards, tables, buttons, tabs) that integrate seamlessly with Tailwind. Using these components ensures a professional, accessible design with minimal effort.
+
+- **Vite (or Create React App)**  
+  A modern build tool that compiles our code and assets quickly, giving developers fast feedback during coding and ensuring a small, optimized bundle for users.
+
+- **Typography & Branding**  
+  We use a clean sans-serif font (Inter or Roboto) and TeamBuilders’ brand colors: green (#3FAE49) for primary actions, near-black (#1A1A1A) for headers, white (#FFFFFF) for backgrounds, and gray tones for cards and inactive elements.
+
+These choices let us deliver a smooth, mobile- and desktop-friendly interface that feels trustworthy and professional—just like a foreman’s dashboard on the job site.
+
+## 2. Backend Technologies
+
+The backend powers all the behind-the-scenes work: storing data, running AI parsing, and serving information to the frontend.
+
+- **Python 3.10+**  
+  A versatile, easy-to-read programming language that our team is comfortable with.
+
+- **FastAPI**  
+  A modern web framework for building APIs in Python. FastAPI is fast, supports automatic documentation, and makes it easy to define endpoints for uploading budgets, quotes, running comparisons, and generating work orders.
+
+- **Background Worker (Python script)**  
+  A separate process that handles time-consuming tasks—like OCR, PDF parsing, and AI calls—so the main API stays responsive. It polls for new jobs, runs them asynchronously, and updates the database when done.
+
+- **Supabase Postgres**  
+  Our relational database for storing projects, budget items, quote items, comparisons, work orders, and audit logs. Supabase gives us built-in row-level security (RLS) and simple connection to our backend.
+
+- **Supabase Storage (S3-compatible)**  
+  We store uploaded files (budget spreadsheets, vendor quotes) and generated outputs (PDF work orders, CSV exports) in secure buckets. Signed URLs ensure only authorized users can download files.
+
+- **Parsing Libraries & OCR**  
+  - `pdfminer.six` and `pypdf` to extract text from PDFs  
+  - `pytesseract` for OCR on scanned or image-based documents  
+  - A fallback chain ensures we can handle both digital and scanned files
+
+- **Virus Scanning (ClamAV)**  
+  We scan every uploaded file for malware before processing, keeping our system and data safe.
+
+## 3. Infrastructure and Deployment
+
+To host and run the app reliably, we use managed services that require minimal DevOps effort, while still offering scalability.
+
+- **Render.com**  
+  - **Static Site** for the React frontend  
+  - **Web Service** for the FastAPI backend  
+  - **Background Worker** for parsing/OCR/AI jobs  
+  Render picks up our code from GitHub, builds Docker containers, and deploys them automatically on each commit.
+
+- **Docker**  
+  Containerizes our backend and worker, ensuring consistency across development, staging, and production environments.
+
+- **GitHub & GitHub Actions**  
+  - Version control for all code  
+  - Automated pipelines (linting, tests, builds) to catch errors early  
+  - Deploy triggers that push updates to Render on successful merges
+
+- **Environment Separation**  
+  We maintain separate development, staging, and production instances in Render and Supabase, preventing test data from mixing with live projects.
+
+This setup gives us one-click deployments, automatic scaling, and built-in health checks—so the app stays up and responds quickly even during busy parsing periods.
+
+## 4. Third-Party Integrations
+
+We rely on these external services to extend functionality without building everything from scratch:
+
+- **OpenAI GPT-4 Turbo**  
+  The primary LLM for parsing quotes, normalizing data, generating variance summaries, and suggesting clarifying questions.
+
+- **Anthropic Claude 3.5 Sonnet** (backup)  
+  Secondary LLM if we need cost or latency alternatives.
+
+- **Supabase Auth (Magic Link)**  
+  Provides passwordless email login out of the box. Fast to ship, low friction for internal users, and supports role-based access control.
+
+- **(Future) Google SSO**  
+  Optional single-sign-on for larger organizations or when TeamBuilders requests it.
+
+- **ClamAV**  
+  Scans uploads for viruses, protecting our infrastructure and data.
+
+- **Sentry**  
+  (Optional) Error tracking service to alert us of frontend or backend crashes in real time.
+
+## 5. Security and Performance Considerations
+
+Keeping data safe and the user experience smooth are top priorities:
+
+Security Measures
+
+- HTTPS/TLS everywhere for data in transit  
+- Encryption at rest (database and storage buckets)  
+- Signed URLs for file uploads/downloads  
+- JWT sessions with 30-minute idle timeouts and refresh tokens  
+- Row-Level Security in Postgres, scoped by project and role  
+- Role-Based Access Control (Admin, Approver, PM, Viewer)  
+- Immutable audit logs with timestamps, user IDs, and change snapshots  
+- Antivirus scanning (ClamAV) on every file upload
+
+Performance Optimizations
+
+- Asynchronous background worker for heavy tasks (OCR, AI parsing)  
+- Progress indicators in the UI so users know parsing is underway  
+- Caching of static assets (frontend) and database query tuning for common lookups  
+- Scalable compute tiers on Render to handle bursts of parsing jobs  
+- Lifecycle rules for storage (cold-archive files older than 90 days) to keep hot storage costs low
+
+## 6. Conclusion and Overall Tech Stack Summary
+
+For **Operation Protect Profit**, we chose a modern, production-ready stack that balances speed of delivery with long-term reliability:
+
+- Frontend: React + Tailwind CSS + shadcn/ui  
+- Backend: Python + FastAPI + a dedicated background worker  
+- Data & Storage: Supabase Postgres + S3-compatible buckets  
+- AI & Parsing: OpenAI GPT-4 Turbo (with Claude fallback), OCR tools, ClamAV  
+- Hosting & Deployments: Dockerized services on Render.com, GitHub for version control and CI/CD  
+- Security: End-to-end encryption, row-level security, role-based access, audit logs
+
+These choices align with our goals to cut manual bid comparison time by at least 50%, eliminate scope-and-unit errors, and give project managers a reliable, audit-friendly workflow from budget upload to final work order. The result is a lightweight, scalable app that feels as solid and dependable as a foreman’s toolbox on a busy job site.

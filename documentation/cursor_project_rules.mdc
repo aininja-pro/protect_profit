@@ -1,0 +1,197 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+## Project Overview
+
+*   **Type:** MVP Web Application
+*   **Description:** Build an MVP web app for TeamBuilders, a construction company, to streamline post-sale subcontractor bid comparisons.
+*   **Primary Goal:** Streamline post-sale subcontractor bid comparisons by automating quote parsing, data normalization, and variance reporting.
+
+## Project Structure
+
+### Framework-Specific Routing
+
+*   **Directory Rules:**
+
+    *   React Router 6: use `src/routes/` directory with `createBrowserRouter` and file-based route modules. Each route module exports loader, action, and component.
+    *   Example 1: `src/routes/index.jsx` → home route
+    *   Example 2: `src/routes/auth/login.jsx` → login page
+    *   Example 3: `src/routes/projects/$projectId/compare.jsx` → nested project compare route
+
+### Core Directories 
+
+*   **Versioned Structure:**
+
+    *   `src/components`: Reusable React components with shadcn/ui integration
+    *   `src/pages`: Page-level components when using Vite file-based routing plugin
+    *   `src/utils`: Utility functions for API calls, data parsing, normalization
+    *   `src/api`: API wrapper modules for FastAPI endpoints
+
+### Key Files
+
+*   **Stack-Versioned Patterns:**
+
+    *   `src/App.jsx`: React Router 6 root component with `<RouterProvider>`
+    *   `src/index.jsx`: Entry point with `ReactDOM.createRoot`
+    *   `tailwind.config.js`: Tailwind CSS v3 configuration
+    *   `docker-compose.yml`: Service definitions for local dev (Python 3.10 + PostgreSQL)
+
+## Tech Stack Rules
+
+*   **Version Enforcement:**
+
+    *   react@18: use concurrent features and `useTransition` for async UI
+    *   tailwindcss@3: rely exclusively on JIT mode; no custom CSS outside `tailwind.config.js`
+    *   shadcn/ui@latest: use `cn` utility for variants; adhere to design tokens
+    *   python@3.10: type hint all public functions; enforce PEP 585 generics
+    *   fastapi@0.95: async endpoints only; Pydantic v2 for models
+    *   postgresql@14: define migrations with SQLAlchemy + Alembic
+    *   supabase-cli@1.x: enforce RLS policies in migration scripts
+    *   boto3@1.26: configure S3 client with `s3v4` signature
+    *   openai@0.x: centralize API calls with retry logic
+    *   anthropic@3.x: fallback only on GPT errors; use shared interface
+    *   pdfminer.six@20221105, pypdf@3.x, pytesseract@0.3: chain OCR parsers with priority
+    *   render-cli@1.x: zero-downtime deploys with health checks
+    *   docker@24: multi-stage builds; non-root runtime user
+    *   actions/setup-node@v3, actions/setup-python@v4: pin versions in CI
+
+## PRD Compliance
+
+*   **Non-Negotiable:**
+
+    *   "Manual, error-prone bid comparison leads to blown budgets.": The system must fully automate quote parsing and variance detection.
+    *   "Generate branded PDF/DOCX work orders.": Use templating for both formats in the backend.
+    *   "Audit Trail: Log uploads, parses, edits, approvals.": All user actions must write to `audit_logs` table with timestamps.
+
+## App Flow Integration
+
+*   **Stack-Aligned Flow:**
+
+    *   Authentication Flow: `src/routes/auth/Login.jsx` uses Supabase Auth magic links; manage session via `supabase-js`
+    *   Budget Upload Route: `src/routes/projects/$projectId/upload/budget.jsx` calls `/api/projects/{id}/upload-budget`
+    *   Quote Parsing: Worker enqueues tasks; UI polls `src/routes/projects/$projectId/status.jsx`
+    *   Comparison View: `src/routes/projects/$projectId/compare.jsx` fetches normalized JSON and displays table with shadcn/ui `DataTable`
+
+## Best Practices
+
+*   React
+
+    *   Use function components with hooks (`useState`, `useEffect`, `useContext`)
+    *   Keep components pure and stateless where possible
+    *   Leverage React Router lazy loading and code splitting
+
+*   Tailwind CSS
+
+    *   Use utility-first classes exclusively; avoid inline styles
+    *   Define design tokens in `tailwind.config.js` for colors and spacing
+    *   Purge unused styles in production builds
+
+*   shadcn/ui
+
+    *   Use `cn` util for conditional classNames
+    *   Wrap components with local variants for theming
+    *   Avoid deep prop drilling; use context for theme overrides
+
+*   Python
+
+    *   Follow PEP 8; use `black`, `isort`, `flake8`
+    *   Type hint all functions; validate with `mypy`
+    *   Structure modules into `schemas`, `services`, `routers`
+
+*   FastAPI
+
+    *   Declare Pydantic models in `schemas` module
+    *   Separate routers by domain; mount in `app/main.py`
+    *   Use dependency injection for DB sessions
+
+*   PostgreSQL
+
+    *   Store migrations in `migrations/` with Alembic
+    *   Enforce RLS per `project_id`
+    *   Use connection pooling with `asyncpg`
+
+*   Supabase
+
+    *   Manage auth via JWT; store secrets in env
+    *   Store uploads in buckets with fine-grained policies
+    *   Use Supabase Functions for lightweight serverless tasks
+
+*   S3-Compatible Storage
+
+    *   Enable versioning and lifecycle rules
+    *   Use signed URLs for client uploads
+    *   Encrypt objects at rest (SSE)
+
+*   OpenAI GPT-4
+
+    *   Wrap calls with exponential backoff
+    *   Limit token usage; truncate long inputs
+    *   Mask PII before sending to API
+
+*   Anthropic Claude
+
+    *   Retry only on rate-limit errors
+    *   Standardize interface with OpenAI module
+    *   Log request/response metadata for audit
+
+*   pdfminer.six / pypdf / pytesseract
+
+    *   Attempt text extraction before OCR
+    *   Normalize whitespace and line breaks
+    *   Fallback to pytesseract only if PDF text fails
+
+*   Supabase Auth
+
+    *   Use magic links with whitelist of redirect URLs
+    *   Implement session refresh logic
+    *   Revoke sessions on logout
+
+*   Render
+
+    *   Implement `/health` endpoint for health checks
+    *   Separate services for frontend, API, worker
+    *   Use environment groups per branch
+
+*   Docker
+
+    *   Use multi-stage builds to minimize image size
+    *   Run as non-root user
+    *   Pin base image digests
+
+*   GitHub Actions
+
+    *   Cache dependencies with `actions/cache`
+    *   Run linters and tests in CI
+    *   Deploy on merge to `main`
+
+## Rules
+
+*   Derive folder/file patterns directly from techStackDoc versions.
+*   If React Router 6: enforce `src/routes/` with nested folders matching path segments.
+*   Never mix routing paradigms (e.g., no `pages/` directory alongside React Router).
+*   Use version-specific conventions strictly; e.g., python@3.10 async-only code.
+
+## Rules Metrics
+
+Before starting the project development, create a metrics file in the root of the project called  
+
+`cursor_metrics.md`  
+
+### Instructions:
+
+*   Each time a cursor rule is used as context, update `cursor_metrics.md`.
+*   Use the following format for `cursor_metrics.md`:
+
+# Rules Metrics
+
+## Usage
+The number of times rules is used as context
+
+*   react-router-6.mdc: 0
+*   python-3.10.mdc: 0
+*   fastapi-0.95.mdc: 0
+*   ...other rules

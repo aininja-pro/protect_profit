@@ -1,0 +1,213 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Frontend Guideline Document
+
+## 1. Frontend Architecture
+
+**Overview:**
+- We use **React** (bootstrapped with Vite) for building the user interface. Vite gives us fast dev feedback and optimized builds.
+- **Tailwind CSS** drives our styling through utility classes.
+- We leverage **shadcn/ui** components (cards, tables, tabs) as building blocks for consistent UI patterns.
+- **Supabase JS** handles authentication (magic-link) and direct file uploads via signed URLs.
+- All data operations (uploading budgets/quotes, running comparisons, fetching results) go through our **FastAPI** backend via REST endpoints.
+
+**Scalability & Maintainability:**
+- Component-based architecture encourages small, reusable building blocks.
+- Vite’s support for code splitting and lazy loading keeps bundle sizes in check.
+- Tailwind’s JIT compiler ensures we ship only the styles we use.
+- Environment variables (`VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) keep endpoints and keys configurable per environment.
+
+**Performance:**
+- CSS is purged of unused classes in production.
+- Static assets (SVGs, icons) are inlined or optimized during the build.
+- We adopt lazy loading for route-level code splitting.
+
+---
+
+## 2. Design Principles
+
+1. **Usability**: Clear navigation, predictable controls, and feedback messages (e.g., upload success/failure).
+2. **Accessibility**: Semantic HTML (`<button>`, `<nav>`, `<table>`), ARIA labels for custom components, focus management, and color-contrast compliance (WCAG AA).
+3. **Responsiveness**: Mobile-first breakpoints; the layout adapts from mobile <640px up to large desktop >=1280px.
+4. **Clarity & Minimalism**: Only show what’s necessary. Use whitespace and card layouts to let content breathe.
+
+_Application in UI:_
+- Interactive elements have clear hover/focus states.
+- Tables scroll horizontally on small screens.
+- Tabs collapse into an accordion on narrow viewports.
+
+---
+
+## 3. Styling and Theming
+
+**Approach:**
+- Utility-first with **Tailwind CSS** (no separate SASS files).
+- Component variants and themes live in `tailwind.config.js` under `theme.extend`.
+
+**UI Style:**
+- **Flat, modern** design with subtle shadows under cards (e.g., `shadow-sm`) and rounded corners (`rounded-md`).
+- Use of white space and clean typography to convey professionalism.
+
+**Color Palette:**
+- Primary Green: `#3FAE49`
+- Black: `#1A1A1A`
+- White: `#FFFFFF`
+- Light Gray: `#F5F5F5`
+- Medium Gray: `#CCCCCC`
+- Dark Gray: `#666666`
+
+**Font:**
+- Sans-serif system font stack, with **Inter** as the preferred web font:
+  `font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;`
+
+**Theming:**
+- Dark mode support configured in Tailwind (`dark:` variants) but off by default.
+- Color tokens (`primary`, `secondary`, `background`, `surface`, `border`) mapped to the palette above for consistency.
+
+---
+
+## 4. Component Structure
+
+**Directory Layout:**
+```
+/src
+  /components       # Generic UI components (Button, Input, Card)
+  /features         # Domain-specific components (BudgetUpload, QuoteComparison)
+  /layouts          # Application shells (DashboardLayout, AuthLayout)
+  /hooks            # Reusable hooks (useAuth, useProjects)
+  /pages            # Route-mapped pages (Login, ProjectDetail)
+  /services         # API clients (supabaseClient, apiClient)
+  /utils            # Helpers (formatters, validators)
+```
+
+**Reusability:**
+- **Atomic components** (buttons, form fields) compose into **composite components** (upload forms, comparison tables).
+- Props are typed (with TypeScript) and well documented.
+- All components live in their own folder with `index.tsx`, `styles.ts` (optional), and `tests`.
+
+**Benefits:**
+- Easy to find and update components.
+- Fosters consistent look and behavior across the app.
+- Simplifies onboarding for new developers.
+
+---
+
+## 5. State Management
+
+**Local State:**
+- React’s `useState` and `useReducer` for component-level state (form inputs, toggles).
+
+**Server State & Side Effects:**
+- **React Query** (or SWR) to fetch, cache, and synchronize data from the backend:
+  - Queries: budgets, quotes, comparisons, work orders.
+  - Mutations: upload budget/quote, trigger parse, generate work order.
+
+**Global UI State:**
+- **React Context** for:
+  - **AuthContext**: user session (login status, user info).
+  - **ThemeContext** (if dark mode is enabled).
+
+**Why This Approach?**
+- React Query handles background revalidation and caching out of the box.
+- Context stays lean—only keeps truly global flags, avoiding prop drilling.
+
+---
+
+## 6. Routing and Navigation
+
+**Library:** React Router v6.
+
+**Router Setup:**
+```jsx
+<BrowserRouter>
+  <AuthProvider>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<ProtectedLayout />}>  {/* checks auth */}
+        <Route path="/projects" element={<ProjectList />} />
+        <Route path="/projects/:projectId" element={<ProjectDetail />}>  {/* nested routes */}
+          <Route index element={<BudgetUpload />} />
+          <Route path="quotes" element={<QuoteUpload />} />
+          <Route path="compare" element={<ComparisonTable />} />
+          <Route path="work-orders" element={<WorkOrderGenerator />} />
+        </Route>
+      </Route>
+    </Routes>
+  </AuthProvider>
+</BrowserRouter>
+```
+
+**Navigation Patterns:**
+- **Sidebar** on desktop with icons + labels.
+- **Burger menu** on mobile.
+- **Breadcrumbs** within project pages for quick jumping between budget/quote/comparison/work-orders.
+
+---
+
+## 7. Performance Optimization
+
+1. **Code Splitting & Lazy Loading**
+   - Pages and heavy components loaded via `React.lazy` + `Suspense`.
+2. **Tree-shaking**
+   - Vite + ES modules remove unused code in production.
+3. **CSS Purging**
+   - Tailwind removes unused utilities automatically.
+4. **Asset Optimization**
+   - SVG icons inlined or compressed.
+   - Images served in modern formats (WebP) where possible.
+5. **HTTP Caching**
+   - Leverage browser caching for static assets.
+6. **Prefetching**
+   - Preload critical routes on hover or when the user is idle.
+
+These measures keep the app snappy, even as projects and file sizes grow.
+
+---
+
+## 8. Testing and Quality Assurance
+
+**Unit Testing:**
+- **Jest** + **React Testing Library** for components and hooks.
+- Aim for high coverage on critical UI elements (upload forms, tables, buttons).
+
+**Integration Testing:**
+- Test key interactions (upload → parse → display comparison) in isolation.
+
+**End-to-End (E2E) Testing:**
+- **Cypress** to simulate real user flows:
+  - Magic-link login.
+  - Budget upload and parsing.
+  - Quote comparison and work-order generation.
+
+**Linting & Formatting:**
+- **ESLint** with React and TypeScript plugins.
+- **Prettier** for consistent code style.
+- **Husky** + **lint-staged** to run checks before commits.
+
+**Continuous Integration:**
+- On each pull request:
+  - Run unit tests.
+  - Run lint/format checks.
+  - Spin up Cypress E2E tests against a test backend.
+
+---
+
+## 9. Conclusion and Overall Frontend Summary
+
+This document lays out how our React-based frontend is structured, styled, and maintained:
+
+- **Architecture:** Vite + React + Tailwind + shadcn/ui, integrated with Supabase and our FastAPI backend.
+- **Design Principles:** Usable, accessible, responsive, and minimal.
+- **Styling:** Flat, modern look with a professional color palette and Inter font.
+- **Components:** Atomic → composite, organized by domain in a clear folder structure.
+- **State & Data:** Local state with hooks, global state via Context, server state via React Query.
+- **Routing:** React Router for nested layouts and protected routes.
+- **Performance:** Lazy loading, tree-shaking, and asset optimization.
+- **Quality:** Jest, React Testing Library, Cypress, ESLint, and CI pipelines.
+
+Together, these guidelines ensure that any developer — regardless of background — can understand, use, and extend our frontend codebase with confidence. The result is a fast, reliable, and maintainable user interface that aligns perfectly with TeamBuilders’ goals for “Operation Protect Profit.”

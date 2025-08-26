@@ -1,0 +1,240 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Operation Protect Profit – Backend Structure Document
+
+## 1. Backend Architecture
+
+Overall, the backend is built to be modular and straightforward, using well-known Python frameworks and patterns to ensure it can grow smoothly and stay easy to maintain.
+
+• **Framework & Language**  
+  • Python 3.10+ as the main language  
+  • FastAPI for building a RESTful API with automatic docs and high performance  
+• **Design Patterns**  
+  • Separation of concerns: routes/controllers, services (business logic), data access layer (repositories)  
+  • Background tasks for long-running jobs (parsing, OCR, AI calls)  
+• **Scalability**  
+  • Stateless API services that can be scaled horizontally on Render.com  
+  • Dedicated background worker for CPU- or I/O-intensive tasks, also scaled separately  
+• **Maintainability**  
+  • Clear folder structure (e.g., `app/routers`, `app/services`, `app/models`, `worker/`)  
+  • Dependency injection via FastAPI for easier testing and component swaps  
+• **Performance**  
+  • Asynchronous I/O in FastAPI for non-blocking requests  
+  • Caching parsed artifacts or AI responses where possible  
+
+## 2. Database Management
+
+• **Type & System**: PostgreSQL hosted by Supabase  
+• **Data Storage**:  
+  • Main transactional data in SQL tables (projects, budgets, quotes, comparisons, work orders)  
+  • File artifacts (uploaded quotes, generated work orders) in S3-compatible Supabase Storage  
+• **Data Access**:  
+  • SQLAlchemy or equivalent ORM for structured queries  
+  • Row-Level Security (RLS) policies via Supabase to enforce project scoping  
+  • Service key vs. anon key separation: backend uses service key, frontend only anon key  
+• **Data Management Practices**:  
+  • Automated backups as provided by Supabase  
+  • 18-month retention for online data, 24-month audit log retention  
+  • Virus scanning on all file uploads via ClamAV before storage  
+  • Encryption at rest (database & storage) and in transit (TLS everywhere)
+
+## 3. Database Schema
+
+### Human-Readable Overview
+
+• **users**: core user accounts managed by Supabase Auth (email, ID)  
+• **roles**: system roles (Admin, Approver, PM, Viewer, Vendor)  
+• **user_roles**: mapping users to roles per project  
+• **projects**: construction projects with metadata (name, dates)  
+• **budgets**: uploaded budget files & metadata  
+• **budget_items**: normalized line items from budgets  
+• **quotes**: vendor quote uploads & metadata  
+• **quote_items**: normalized line items from quotes  
+• **comparisons**: comparison sessions linking budgets and quotes, storing variance summaries  
+• **work_orders**: generated work order documents & metadata  
+• **audit_logs**: record of key user actions (uploads, approvals, downloads)  
+
+### SQL Schema (PostgreSQL)
+
+```sql
+-- Users and Roles
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL  -- Admin, Approver, PM, Viewer, Vendor
+);
+
+CREATE TABLE user_roles (
+  user_id UUID NOT NULL,             -- from Supabase Auth
+  project_id UUID NOT NULL,
+  role_id INT NOT NULL REFERENCES roles(id),
+  PRIMARY KEY (user_id, project_id)
+);
+
+-- Projects
+CREATE TABLE projects (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Budget Tables
+CREATE TABLE budgets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  file_key TEXT NOT NULL,     -- reference to Supabase Storage
+  uploaded_by UUID NOT NULL,
+  uploaded_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE budget_items (
+  id SERIAL PRIMARY KEY,
+  budget_id UUID REFERENCES budgets(id) ON DELETE CASCADE,
+  description TEXT,
+  quantity NUMERIC,
+  unit_price NUMERIC,
+  total_price NUMERIC,
+  line_number TEXT          -- original line identifier
+);
+
+-- Quote Tables
+CREATE TABLE quotes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  vendor_name TEXT,
+  file_key TEXT NOT NULL,
+  uploaded_by UUID,
+  uploaded_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE quote_items (
+  id SERIAL PRIMARY KEY,
+  quote_id UUID REFERENCES quotes(id) ON DELETE CASCADE,
+  description TEXT,
+  quantity NUMERIC,
+  unit_price NUMERIC,
+  total_price NUMERIC,
+  line_number TEXT
+);
+
+-- Comparisons
+CREATE TABLE comparisons (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  created_by UUID,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Work Orders
+CREATE TABLE work_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  comparison_id UUID REFERENCES comparisons(id) ON DELETE SET NULL,
+  file_key TEXT NOT NULL,
+  generated_by UUID,
+  generated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Audit Logs
+CREATE TABLE audit_logs (
+  id SERIAL PRIMARY KEY,
+  user_id UUID,
+  action TEXT NOT NULL,
+  details JSONB,
+  occurred_at TIMESTAMPTZ DEFAULT now()
+);
+```  
+
+## 4. API Design and Endpoints
+
+We use a RESTful API with FastAPI. All endpoints return JSON and use standard HTTP status codes.
+
+• **Authentication**  
+  • Supabase JWT tokens passed in `Authorization: Bearer <token>` header  
+• **Key Endpoints**  
+  • `/projects/` (GET, POST): list or create projects  
+  • `/projects/{id}/budgets` (POST): upload & parse budget file  
+  • `/projects/{id}/budgets/{bid}/items` (GET): fetch normalized budget items  
+  • `/projects/{id}/quotes` (POST): upload & AI-parse vendor quote  
+  • `/projects/{id}/quotes/{qid}/items` (GET): fetch normalized quote items  
+  • `/projects/{id}/comparisons` (POST): trigger side-by-side comparison  
+  • `/projects/{id}/comparisons/{cid}` (GET): get comparison report  
+  • `/comparisons/{cid}/work_order` (POST): generate work order document  
+  • `/work_orders/{wid}` (GET): download work order PDF/DOCX  
+  • `/users/roles` (GET): list roles, `/user_roles` (POST/DELETE): assign roles  
+  • `/audit_logs` (GET): fetch audit trail (Admin only)  
+
+• **File Uploads** use multipart/form-data with virus scan before storage.  
+• **Background Tasks** for parsing and Large-Language-Model calls; jobs queued internally by FastAPI’s background worker endpoint.
+
+## 5. Hosting Solutions
+
+• **Render.com**  
+  • Static Site service for React app with global CDN  
+  • Web Service for FastAPI API, auto-scaling based on load  
+  • Background Worker service running the parsing/OCR/LLM tasks  
+  • Docker support ensures consistent environments  
+• **Supabase**  
+  • Managed PostgreSQL database  
+  • S3-compatible storage for file uploads and artifacts  
+  • Built-in Auth, RLS, and monitoring  
+
+**Benefits**:  
+• Reliability: SLAs from Render and Supabase  
+• Scalability: separate tiers for API and heavy tasks  
+• Cost-effectiveness: pay-as-you-go, small MVP footprint  
+
+## 6. Infrastructure Components
+
+• **Load Balancer**: built into Render.com to distribute API requests  
+• **CDN**: Render’s global CDN for React static assets  
+• **Caching**: in-memory caches (e.g., Python’s `lru_cache` or Redis) for repeated AI response snippets or lookup tables  
+• **Object Storage**: Supabase Storage with public/private buckets  
+• **Background Worker**: dedicated service for OCR (pytesseract), PDF parsing (pdfminer.six, pypdf), and AI calls (OpenAI, Anthropic)  
+• **Job Queue**: FastAPI background tasks or an in-process queue; can switch to Celery/RabbitMQ if needed later  
+
+Together, they ensure fast page loads, smooth API performance, and reliable file processing.
+
+## 7. Security Measures
+
+• **Authentication & Authorization**  
+  • Supabase Auth with passwordless magic links + optional Google SSO  
+  • JWT tokens for API access  
+  • Role-Based Access Control enforced in code and via database RLS  
+• **Data Encryption**  
+  • TLS for all inbound/outbound connections  
+  • At-rest encryption on database and storage  
+• **File Scanning**  
+  • ClamAV virus scan on every upload  
+• **Audit & Compliance**  
+  • Comprehensive audit logs stored for 24 months  
+  • Database RLS policies to isolate project data  
+  • Regular backups and retention policies (18 months online)  
+
+## 8. Monitoring and Maintenance
+
+• **Monitoring Tools**  
+  • Render built-in metrics (CPU, memory, response times)  
+  • Supabase dashboard for query performance and error logs  
+  • Application logging via structured JSON logs (stdout)  
+  • Optional integration with Sentry or Datadog for error tracking  
+• **Maintenance Strategies**  
+  • Database migrations managed via Alembic  
+  • Scheduled backups and test restores  
+  • Dependency updates and security patching on a regular cadence  
+  • Health-check endpoints for uptime monitoring  
+
+## 9. Conclusion and Overall Backend Summary
+
+The backend for Operation Protect Profit is designed to be reliable, secure, and easy to extend. By leveraging FastAPI, PostgreSQL (via Supabase), and a clear separation between API services and background processing, we ensure:  
+
+• **Performance** for both user-facing queries and heavy AI/OCR jobs  
+• **Scalability** through stateless services and cloud infrastructure  
+• **Maintainability** via clean architecture, automated migrations, and comprehensive logging  
+• **Security & Compliance** with encryption, RLS, and audit logs  
+
+This setup aligns perfectly with the MVP’s needs—automating manual workflows for subcontractor quote comparisons—while leaving room to grow over the next 12 months and beyond.

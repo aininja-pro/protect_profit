@@ -1,0 +1,197 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Implementation Plan: Operation Protect Profit (MVP)
+
+## 1. Architecture Overview
+
+- **Frontend**  
+  • React + TypeScript  
+  • Tailwind CSS + shadcn/ui  
+  • Hosted on Render Static Site  
+  
+- **Backend**  
+  • FastAPI (Python)  
+  • Secured via HTTPS/TLS 1.2+  
+  • Dockerized, deployed on Render Web Service  
+  
+- **Background Worker**  
+  • FastAPI / Celery or RQ  
+  • Tasks: OCR, LLM parsing, normalization, PDF generation  
+  • Dockerized, deployed on Render Background Worker  
+  
+- **Database & Storage**  
+  • Supabase Postgres (encrypted at rest)  
+  • Supabase Storage (S3-compatible, signed URLs)  
+  • Audit logs & file metadata in Postgres; raw files in Storage  
+
+- **AI & OCR**  
+  • OpenAI GPT-4 Turbo (primary), Anthropic Claude 3.5 Sonnet (fallback)  
+  • pdfminer.six, pypdf2, pytesseract for PDF/DOCX→text  
+
+- **Authentication**  
+  • Supabase Auth (magic-link)  
+  • RBAC: Admin, PM, Approver, Viewer  
+  • Project-level permissions enforced server-side
+
+
+---
+
+## 2. Data Model (Core Entities)
+
+1. **User**: id, email (unique), role  
+2. **Project**: id, name, owner_id  
+3. **BudgetItem**: id, project_id, description, unit, quantity, unit_price  
+4. **VendorQuote**: id, project_id, vendor_id, file_path, parsed_at  
+5. **QuoteItem**: id, quote_id, description, unit, quantity, unit_price  
+6. **Comparison**: id, project_id, budget_item_id, quote_item_id, variance_flag  
+7. **WorkOrder**: id, project_id, vendor_id, items, price_summary, file_pdf, file_docx  
+8. **AuditLog**: id, user_id, action, entity_type, entity_id, timestamp, metadata
+
+
+---
+
+## 3. API Endpoints (MVP)
+
+### Authentication
+- POST `/auth/magic-link` → send login link  
+- GET `/auth/callback` → validate token, establish session cookie
+
+### Projects
+- GET `/projects`  
+- POST `/projects`  
+- GET `/projects/{id}`  
+
+### File Upload & Parsing
+- POST `/projects/{id}/budget/upload`  
+  • Multipart CSV/XLSX → validate MIME, virus-scan, parse  
+- POST `/projects/{id}/quotes/upload`  
+  • Multipart PDF/DOCX/CSV → validate, virus-scan, OCR → queue parse  
+
+### Comparisons
+- GET `/projects/{id}/comparisons`  
+- GET `/projects/{id}/comparisons/{trade}`  
+
+### Work Orders
+- POST `/projects/{id}/work-orders`  
+  • Payload: selected vendor, items adjustments  
+  • Returns signed URL for PDF/DOCX
+
+### Audit Logs
+- GET `/projects/{id}/audit-logs`  
+
+
+---
+
+## 4. Frontend Pages (MVP)
+
+1. **Login / Magic Link**  
+2. **Dashboard**  
+   • Project list + “Create New”  
+3. **Project Detail**  
+   • Budget upload & status  
+   • Quote upload & status  
+   • Comparison table + variance summary card  
+   • AI-Generated Questions panel  
+4. **Work Order Builder**  
+   • Vendor selector  
+   • Line-item adjustments  
+   • Preview & download PDF/DOCX
+
+
+---
+
+## 5. Background Worker Tasks
+
+- **Budget Parsing**  
+  • XLSX/CSV → sanitize, normalize units  
+- **Quote Parsing**  
+  • File → OCR/Text extraction → LLM → structured JSON  
+  • Rate-limit LLM calls, handle retries, fall back to Claude  
+- **Data Normalization**  
+  • Unit conversions, fuzzy match descriptions  
+- **Variance Flagging & AI Questions**  
+  • Identify deltas > threshold → generate prompt → LLM → questions  
+- **Work Order Generation**  
+  • Render DOCX via python-docx + mailmerge  
+  • Convert to PDF via LibreOffice headless or WeasyPrint
+
+
+---
+
+## 6. Security Measures & Compliance
+
+**Authentication & Access Control**
+- Enforce magic-link expiry (15 min), single-use token  
+- Session cookies: `Secure`, `HttpOnly`, `SameSite=Lax`  
+- RBAC middleware on every endpoint  
+
+**Input Validation & Sanitization**
+- Validate file MIME types & max size (e.g. 10 MB)  
+- Virus-scan uploads via ClamAV before saving  
+- Parameterized queries via SQLAlchemy/ORM  
+- Server-side validation of all JSON bodies (Pydantic)  
+
+**Data Protection**
+- TLS 1.2+ enforced by Render  
+- Supabase secrets via environment variables (no hardcoding)  
+- Encrypt sensitive fields at rest if needed (e.g. PII)  
+
+**API Security**
+- Rate-limiting on upload endpoints (e.g. 10/min)  
+- CORS: allow only frontend origin  
+- Enforce HTTPS; redirect HTTP→HTTPS  
+
+**Web Security Hygiene**
+- CSP header: restrict scripts/styles to self + known CDNs  
+- HSTS header with `max-age=31536000; includeSubDomains`  
+- `X-Frame-Options: DENY`; `X-Content-Type-Options: nosniff`  
+- Anti-CSRF tokens for state-changing POSTs
+
+**Infrastructure & CI/CD**
+- Docker images built from minimal base (e.g., `python:3.11-slim`)  
+- Dependabot or Snyk for dependency scanning  
+- Render health checks & automatic deploy previews  
+- Secrets in Render & Supabase vaults only
+
+
+---
+
+## 7. Milestones & Timeline
+
+1. Sprint 1 (1 week)  
+   • Project scaffolding (frontend, backend, DB)  
+   • Auth (magic-link) + RBAC
+
+2. Sprint 2 (1 week)  
+   • Budget upload & parser  
+   • Virus scanning & storage integration
+
+3. Sprint 3 (1 week)  
+   • Quote upload + OCR/LLM parsing background worker  
+   • Data normalization
+
+4. Sprint 4 (1 week)  
+   • Comparison UI + variance summary  
+   • AI questions feature
+
+5. Sprint 5 (1 week)  
+   • Work order generator (DOCX/PDF)  
+   • Audit log viewer
+
+6. Final QA & Security Review (1 week)  
+   • Penetration testing, accessibility check  
+   • Performance tuning, logging
+
+_Total MVP Delivery: ~6 weeks_
+
+
+---
+
+*All components adhere to secure-by-design principles, least privilege, and defense-in-depth. Errors will fail securely without leaking sensitive info, and secrets/API keys are never checked into code.*
+
+Looking forward to feedback or any adjustments before we kick off Sprint 1!

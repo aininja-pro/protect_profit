@@ -1,0 +1,163 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Project Requirements Document
+
+## 1. Project Overview
+
+**Operation Protect Profit** is a lightweight web application designed for TeamBuilders, a construction company, to streamline the post-sale evaluation of subcontractor bids. Right now, project managers manually collect at least three quotes per trade (electrical, concrete, masonry, etc.), then wrestle with inconsistent formats, missing scope items, and mismatched units. This slow, error-prone process leads to blown budgets, margin leaks, and frustrated teams.
+
+We’re building this MVP to automate quote parsing, normalize all data into a standard schema, and present an apples-to-apples comparison alongside the original project budget. Key objectives are:
+
+*   Cut the time PMs spend reconciling bids by at least 50%.
+*   Reduce scope-and-unit-related errors to near zero.
+*   Deliver clear audit trails and one-click work order generation.
+
+Success means PMs can upload files, see a flagged comparison table, pick a vendor, and produce a locked-scope work order—without ever leaving the app.
+
+## 2. In-Scope vs. Out-of-Scope
+
+### In-Scope (MVP)
+
+*   **Project creation**: name, type, location, target margin
+*   **Budget upload & parsing**: CSV/XLSX → structured budget items
+*   **Quote upload & AI parsing**: PDF/DOCX/CSV → JSON quote items (OCR fallback for scans)
+*   **Data normalization**: map divisions, standardize units and line items
+*   **Side-by-side comparison**: table with flags (MISSING, OUTLIER, etc.) and variance summary
+*   **AI-generated questions**: scope-clarification suggestions
+*   **Decision workflow**: select vendor, adjust scope/prices
+*   **Work order generator**: branded PDF/DOCX export with locked scope, price, signature blocks
+*   **Audit trail**: timestamped log of uploads, parses, edits, approvals
+*   **Role-based access**: PMs, Approvers, Admins, Viewers via magic-link email auth
+
+### Out-of-Scope (Phase 2+)
+
+*   Full SSO integrations beyond Google
+*   Vendor-facing portal with bid submission UI
+*   Real-time chat or messaging with vendors
+*   Embedding search over historical cost data
+*   E-signature integration (DocuSign/HelloSign)
+*   Multi-language/localization support
+*   Deep ERP/QuickBooks API sync (beyond CSV exports)
+
+## 3. User Flow
+
+When a project manager signs in via a magic-link email, they land on a dashboard showing **Active**, **Draft**, and **Completed** projects. Clicking “Create Project” opens a modal for name, location, type, and target margin. After saving, the app assigns a project ID and brings the PM to the project overview, where they see tabs for **Budget**, **Quotes**, **Compare**, **Decision**, and **Audit Trail**.
+
+In the **Budget** tab, the PM uploads their estimating spreadsheet (CSV or XLSX). A background worker parses it into divisions, line items, quantities, units, and cost fields, then shows a preview for quick verification. Next, in **Quotes**, they upload each subcontractor’s PDF/DOCX/CSV file and tag the trade. After upload, a progress indicator shows AI-driven parsing and normalization. When that finishes, the PM opens **Compare** to see a grid: budget items as rows, each vendor’s bid as columns, with color-coded flags and a variance summary card on top. Once they’re ready, they move to **Decision**, pick a vendor per trade, tweak any line items or terms, and click “Generate Work Order” to produce a final PDF/DOCX. All actions—uploads, parsing runs, vendor selections, and exports—are recorded in **Audit Trail** for approver review and compliance.
+
+## 4. Core Features
+
+*   **Authentication & Roles**\
+    • Magic-link email sign-in (passwordless)\
+    • Four roles: PM, Approver, Admin, Viewer\
+    • Project-scoped access via row-level security
+*   **Budget Import & Parsing**\
+    • Upload CSV/XLSX → AI-assisted CSV parser\
+    • Map divisions, trade descriptions, qty, unit, cost fields
+*   **Quote Upload & AI Parsing**\
+    • Accept PDF, DOCX, CSV\
+    • OCR fallback (pytesseract + pdfminer.six) for scanned docs\
+    • LLM (OpenAI GPT-4 Turbo) to convert text into JSON
+*   **Data Normalization**\
+    • Standardize units (ft, ea, sq ft) and division codes\
+    • Hard-coded rules + AI inference for ambiguous lines
+*   **Side-by-Side Comparison**\
+    • Dynamic table: rows = budget items; columns = vendor bids\
+    • Flags: MISSING, OUTLIER, UNIT MISMATCH\
+    • Variance summary card (budget vs low/high/selected bids)
+*   **AI-Generated Questions**\
+    • Suggested clarifications based on flagged items
+*   **Decision & Work Order Generation**\
+    • Vendor selection per trade\
+    • Editable draft scope/pricing\
+    • PDF/DOCX export with logo, terms, signature fields
+*   **Audit Trail & Reporting**\
+    • Immutable log of all key actions (uploads, parses, approvals)\
+    • CSV/Excel exports: budget vs awarded, decision log
+
+## 5. Tech Stack & Tools
+
+*   Frontend:\
+    • React (UI framework)\
+    • Tailwind CSS (utility-first styling)\
+    • shadcn/ui (cards, tables, tabs)
+*   Backend & Workers:\
+    • Python 3.10+\
+    • FastAPI (REST API)\
+    • Celery-style background worker (or simple DB polling)
+*   Data & Storage:\
+    • Supabase Postgres (metadata, RLS)\
+    • Supabase Storage (S3-compatible buckets)
+*   AI & Parsing:\
+    • OpenAI GPT-4 Turbo (parsing, normalization, question generation)\
+    • Anthropic Claude 3.5 Sonnet (backup LLM)\
+    • pdfminer.six, pypdf, pytesseract (OCR)\
+    • ClamAV (virus scan on uploads)
+*   Hosting & Deployment:\
+    • Render.com (static site for React, web service for API, background worker)\
+    • Docker (optional containerization)
+*   IDE & Developer Tools:\
+    • Cursor (AI-powered IDE assistant)\
+    • Claude Code (terminal coding helper)
+
+## 6. Non-Functional Requirements
+
+*   **Performance**\
+    • UI pages load in under 2 seconds\
+    • Asynchronous parsing jobs with progress indicators\
+    • Handle 10–20 parses per project without timeouts
+*   **Security & Compliance**\
+    • HTTPS/TLS 1.2+ end-to-end\
+    • At-rest encryption (Postgres + S3 buckets)\
+    • Signed URLs for file access\
+    • JWT sessions, 30-min idle timeout, refresh tokens\
+    • Row-level security by project\
+    • Audit logs retained for ≥24 months
+*   **Scalability & Reliability**\
+    • Support 30 concurrent projects, 450 quote files, 80k budget rows\
+    • Auto-archive older files (lifecycle rules after 90 days)\
+    • Daily backups, 30-day retention
+*   **Usability**\
+    • Clean, minimalist UI matching TeamBuilders branding\
+    • Clear feedback on upload/parse status\
+    • Accessible color-contrast for flags and alerts
+
+## 7. Constraints & Assumptions
+
+*   **LLM Availability**\
+    • OpenAI API keys with default rate limits are sufficient\
+    • Fall back to Claude if cost or latency spikes
+*   **File Formats**\
+    • Budget files in CSV/XLSX; vendor quotes in PDF/DOCX/CSV\
+    • Scanned quotes may require OCR, with varied accuracy
+*   **Hosting**\
+    • Render + Supabase (US region)\
+    • No on-prem or alternative cloud in MVP
+*   **User Base**\
+    • 5–15 internal users (PMs, Approvers, Admins)\
+    • No public or vendor accounts except time-boxed upload links
+*   **Data Retention**\
+    • Online storage for 18 months, cold/archive thereafter\
+    • Hard-delete on request with 7-day grace period
+
+## 8. Known Issues & Potential Pitfalls
+
+*   **OCR & Parsing Accuracy**\
+    • Handwritten or low-quality scans can mislead AI. Mitigation: flag low-confidence extractions, allow manual corrections in UI.
+*   **Inconsistent Quote Layouts**\
+    • Vendors use custom templates, page breaks, multi-column tables. Mitigation: pre-parse preview, mapping overrides, human-in-the-loop checks.
+*   **API Rate Limits & Costs**\
+    • Bulk LLM calls may incur high latency or costs. Mitigation: batch pages into single prompts, cache common structures, fall back to Claude or local rules.
+*   **Large File Uploads**\
+    • >5 MB PDFs may time out. Mitigation: enforce 10 MB max size, show clear error, allow chunked uploads.
+*   **Security of Uploads**\
+    • Risk of malicious files. Mitigation: antivirus scan (ClamAV), signed-URL access, strict CORS and CSP policies.
+*   **Data Mapping Ambiguities**\
+    • AI may map items incorrectly to CSI divisions. Mitigation: present mapping table to PM for review before comparisons.
+
+By following this PRD, the AI model will have all the clarity needed to generate subsequent technical documents—tech stack deep dives, frontend and backend guidelines, detailed architecture diagrams—without further questions.

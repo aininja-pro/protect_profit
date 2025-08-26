@@ -1,0 +1,26 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+flowchart TD
+    Start[User visits login screen] --> Auth[Passwordless email magic link authentication]
+    Auth --> Dashboard[Dashboard landing page]
+    Dashboard --> UploadBudget[Budget upload CSV XLSX]
+    UploadBudget --> ParseBudget[AI parsing of budget]
+    ParseBudget --> UploadQuote[Quote upload PDF DOCX CSV]
+    UploadQuote --> ParseQuote[OCR and AI parsing of quote]
+    ParseQuote --> Normalize[Data normalization]
+    Normalize --> Compare[Side by side comparison]
+    Compare --> Flagging[Variance analysis and flagging]
+    Flagging --> AIQuestions[AI generated vendor questions]
+    AIQuestions --> Review[Approver review workflow]
+    Review --> Decision{Approve or request revisions}
+    Decision -->|Approve| WorkOrder[Generate work order PDF DOCX]
+    Decision -->|Request revisions| BackToQuote[Send questions to vendor]
+    BackToQuote --> UploadQuote
+    WorkOrder --> Export[Download export CSV XLSX]
+    Export --> Audit[Audit trail logging]
+    Audit --> End[Process complete]

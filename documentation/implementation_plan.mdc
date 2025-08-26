@@ -1,0 +1,297 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# Implementation plan
+
+## Phase 1: Environment Setup
+
+1. **Prevalidation – Verify project root**  
+   Check if current directory contains any of `package.json`, `pyproject.toml`, `README.md`, or `.git` to avoid re‐initializing an existing project.  
+   _Reference: Project Overview: General Requirements_
+
+2. **Install Node.js v20.2.1**  
+   If `node -v` is not `v20.2.1`, download and install from https://nodejs.org/download/release/v20.2.1/ (Tech Stack: Core Tools).  
+   **Validation:** Run `node -v` and confirm it outputs `v20.2.1`.  
+   _Reference: Tech Stack: Developer Tools_
+
+3. **Install Python 3.10.x**  
+   If `python --version` is not `3.10.*`, install Python 3.10.  
+   **Validation:** Run `python --version` and confirm `3.10`.  
+   _Reference: Tech Stack: Backend_
+
+4. **Initialize Git repository**  
+   Run `git init` at project root and create initial `.gitignore` with entries: `node_modules/`, `__pycache__/`, `.env`, `.cursor/mcp.json`.  
+   _Reference: Tech Stack: Developer Tools_
+
+5. **Create directory structure**  
+   ```bash
+   mkdir frontend backend worker infra
+   ```  
+   _Reference: Infrastructure Notes_
+
+6. **Create `cursor_metrics.md`**  
+   In project root, create `cursor_metrics.md` for tracking Cursor performance.  
+   _Reference: Tech Stack: Developer Tools_
+
+7. **Set up Cursor MCP configuration**  
+   ```bash
+   mkdir -p .cursor
+   touch .cursor/mcp.json
+   echo ".cursor/mcp.json" >> .gitignore
+   ```  
+   _Reference: Tech Stack: Developer Tools_
+
+8. **Add Supabase MCP server settings (macOS)**  
+   Open `.cursor/mcp.json` and insert:  
+   ```json
+   {  
+     "mcpServers": {  
+       "supabase": {  
+         "command": "npx",  
+         "args": ["-y", "@modelcontextprotocol/server-postgres", "<connection-string>"]  
+       }  
+     }  
+   }
+   ```  
+   _Reference: Tech Stack: Backend & Tech Stack: Supabase_
+
+9. **Add Supabase MCP server settings (Windows)**  
+   If on Windows, replace content of `.cursor/mcp.json` with:  
+   ```json
+   {  
+     "mcpServers": {  
+       "supabase": {  
+         "command": "cmd",  
+         "args": ["/c","npx","-y","@modelcontextprotocol/server-postgres","<connection-string>"]  
+       }  
+     }  
+   }
+   ```  
+   _Reference: Tech Stack: Backend & Tech Stack: Supabase_
+
+10. **Obtain Supabase connection string**  
+    Visit https://supabase.com/docs/guides/getting-started/mcp#connect-to-supabase-using-mcp, copy your connection string, then replace `<connection-string>` in `.cursor/mcp.json`.  
+    _Reference: Tech Stack: Supabase_
+
+11. **Validate MCP connection**  
+    In Cursor, open Settings → MCP; ensure “supabase” server shows green active status.  
+    _Reference: Tech Stack: Developer Tools_
+
+12. **Install ClamAV**  
+    - macOS: `brew install clamav`  
+    - Ubuntu: `sudo apt-get install clamav`  
+    **Validation:** Run `clamscan --version`.  
+    _Reference: Project Overview: Data Security & Compliance_
+
+## Phase 2: Frontend Development
+
+13. **Initialize React app**  
+    ```bash
+    cd frontend
+    npx create-react-app@5.0.1 .
+    ```  
+    _Reference: Tech Stack: Frontend_
+
+14. **Install Tailwind CSS & shadcn/ui**  
+    ```bash
+    npm install -D tailwindcss@3.2.7 postcss autoprefixer
+    npx tailwindcss init -p
+    npm install @shadcn/ui
+    ```  
+    _Reference: Tech Stack: Frontend_
+
+15. **Configure Tailwind**  
+    In `tailwind.config.js`, set `content: ['./src/**/*.{js,jsx}']`, extend theme with colors (#3FAE49, #1A1A1A, #FFFFFF).  
+    _Reference: UI Branding_
+
+16. **Install React Router**  
+    ```bash
+    npm install react-router-dom@6
+    ```  
+    _Reference: App Flow: Routing_
+
+17. **Create global layout**  
+    Create `/src/components/Layout.jsx` with header (logo & nav tabs), footer. Use Inter font.  
+    _Reference: UI Branding_
+
+18. **Implement Authentication wrapper**  
+    Create `/src/components/AuthProvider.jsx` using VITE_API_URL & Supabase Auth (magic link).  
+    _Reference: Authentication: Passwordless Email_
+
+19. **Build Budget Upload page**  
+    Create `/src/pages/BudgetUpload.jsx` with CSV/XLSX file input, parse preview table, upload button.  
+    _Reference: Key Features: Budget Upload and Parsing_
+
+20. **Build Quote Upload page**  
+    Create `/src/pages/QuoteUpload.jsx` with PDF/DOCX/CSV input, display OCR progress indicator.  
+    _Reference: Key Features: Quote Upload and AI Parsing_
+
+21. **Build Comparison page UI**  
+    Create `/src/pages/Comparison.jsx` with shadcn/ui Table and Tabs for vendor columns, budget rows, flags (MISSING, OUTLIER).  
+    _Reference: Key Features: Side-by-Side Comparison_
+
+22. **Build Work Order page**  
+    Create `/src/pages/WorkOrder.jsx` with form to select vendor, edit scope, generate PDF/DOCX.  
+    _Reference: Key Features: Work Order Generation_
+
+23. **Build Audit Trail page**  
+    Create `/src/pages/AuditTrail.jsx` listing logs with timestamp and user.  
+    _Reference: Key Features: Audit Trail_
+
+24. **Validation – Frontend build**  
+    Run `npm run build` and confirm no errors and output in `build/`.  
+    _Reference: Infrastructure Notes: Frontend Hosting_
+
+## Phase 3: Backend Development
+
+25. **Set up Python virtual environment**  
+    ```bash
+    cd ../backend
+    python -m venv .venv
+    source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+    ```  
+    _Reference: Tech Stack: Backend_
+
+26. **Install Python dependencies**  
+    ```bash
+    pip install fastapi uvicorn python-dotenv supabase pdfminer.six pypdf pytesseract openai anthropic python-multipart clamav
+    ```  
+    _Reference: Tech Stack: AI and Parsing & Data Security & Compliance_
+
+27. **Create FastAPI app skeleton**  
+    Create `/backend/app/main.py` with `FastAPI()` instance and root health check.  
+    _Reference: Tech Stack: Backend_
+
+28. **Configure environment variables**  
+    In `/backend/.env`, add `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, etc.  
+    _Reference: Infrastructure Notes: Environment Variables_
+
+29. **Set up Supabase client**  
+    In `/backend/app/db.py`, instantiate `create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)`.  
+    _Reference: Tech Stack: Database & Storage_
+
+30. **Define PostgreSQL schema for MVP**  
+    Provide SQL in `/infra/schema.sql`:  
+    ```sql
+    CREATE TABLE projects (...);
+    CREATE TABLE budget_items (...);
+    CREATE TABLE vendor_quotes (...);
+    CREATE TABLE work_orders (...);
+    CREATE TABLE audit_logs (...);
+    ```  
+    _Reference: Tech Stack: Database & Storage_
+
+31. **Apply schema via Supabase MCP**  
+    In Cursor terminal, run `npx @modelcontextprotocol/client-postgres apply --file infra/schema.sql --db supabase`  
+    **Validation:** Confirm tables exist in Supabase Studio.  
+    _Reference: Tech Stack: Supabase_
+
+32. **Implement Budget upload API**  
+    Create `/backend/app/routes/budget.py` with `POST /budgets` to accept CSV/XLSX, store metadata and file in Supabase Storage, enqueue parse job.  
+    **Validation:** Test with `curl -F file=@test.csv http://localhost:8000/budgets`.  
+    _Reference: Key Features: Budget Upload and Parsing_
+
+33. **Implement Quote upload API**  
+    Create `/backend/app/routes/quotes.py` with `POST /quotes`, run ClamAV scan on file, store, then use Celery-like background task to OCR + LLM parse.  
+    **Validation:** Upload sample PDF via Postman.  
+    _Reference: Key Features: Quote Upload and AI Parsing & Data Security_
+
+34. **Implement Data normalization logic**  
+    In `/backend/app/services/normalize.py`, combine hard‐coded unit/division rules with OpenAI GPT-4o calls.  
+    **Validation:** Unit test `pytest tests/test_normalize.py`.  
+    _Reference: Key Features: Data Normalization_
+
+35. **Implement side-by-side comparison API**  
+    Create `/backend/app/routes/comparison.py` with `GET /projects/{id}/comparison` returns budget vs quotes with flags.  
+    **Validation:** `curl http://localhost:8000/projects/1/comparison`.  
+    _Reference: Key Features: Side-by-Side Comparison_
+
+36. **Implement Work Order generation service**  
+    In `/backend/app/services/workorder.py`, generate PDF (ReportLab) and DOCX (python-docx), lock scope & price.  
+    **Validation:** API `POST /projects/1/workorder` and inspect output files.  
+    _Reference: Key Features: Work Order Generation_
+
+37. **Implement Audit Trail logging**  
+    In each route, record action in `audit_logs` table with timestamp, user, project_id.  
+    **Validation:** Query `SELECT * FROM audit_logs;`.  
+    _Reference: Key Features: Audit Trail_
+
+38. **Enable CORS**  
+    In `/backend/app/main.py`, add `CORSMiddleware` allowing `process.env.ALLOWED_ORIGINS` (`http://localhost:3000`).  
+    _Reference: Infrastructure Notes: Environment Variables_
+
+39. **Set up background worker**  
+    Create `/worker/worker.py` to poll tasks table for pending parse jobs, run OCR & AI parsing, update status.  
+    **Validation:** Run `python worker.py` and confirm it processes test job.  
+    _Reference: Tech Stack: Background Worker_
+
+## Phase 4: Integration
+
+40. **Connect frontend upload forms to APIs**  
+    In `/frontend/src/services/api.js`, configure `axios` baseURL = `import.meta.env.VITE_API_URL`, implement `uploadBudget` and `uploadQuote`.  
+    **Validation:** Upload via UI and confirm backend received file.  
+    _Reference: App Flow: Step 3_
+
+41. **Display parsing/normalization progress**  
+    In `/frontend/src/components/Progress.jsx`, poll `/projects/{id}/status` until `parsed`.  
+    **Validation:** Observe progress indicator during test parse.  
+    _Reference: Developer Tools: Progress Indicators_
+
+42. **Render comparison data**  
+    In `/frontend/src/pages/Comparison.jsx`, fetch `/comparison` endpoint and render with shadcn/ui Table, flags highlighted in red/green.  
+    **Validation:** Confirm flags match test data.  
+    _Reference: Key Features: Side-by-Side Comparison_
+
+43. **Trigger work order download**  
+    In `/frontend/src/pages/WorkOrder.jsx`, call `POST /workorder` then download PDF/DOCX via signed URL.  
+    **Validation:** Download and open generated work order.  
+    _Reference: Key Features: Work Order Generation_
+
+44. **Implement role-based UI**  
+    In `AuthProvider.jsx`, fetch user role from `/me` endpoint and hide/disable UI controls per Admin/PM/Approver/Viewer.  
+    **Validation:** Test each role by mocking user object.  
+    _Reference: User Roles & Permissions_
+
+45. **Implement vendor upload link**  
+    Create `/src/pages/VendorUpload.jsx` accessible via tokenized URL, minimal UI to upload quote without login.  
+    **Validation:** Access link in incognito, upload file, confirm entry in backend.  
+    _Reference: User Roles & Permissions_
+
+## Phase 5: Deployment
+
+46. **Deploy frontend to Render Static Site**  
+    - In Render dashboard, create Static Site service, build command `npm ci && npm run build`, publish `build/`.  
+    - Set `VITE_API_URL`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.  
+    **Validation:** Visit deployed URL and confirm UI loads.  
+    _Reference: Infrastructure Notes: Frontend Hosting_
+
+47. **Deploy backend to Render Web Service**  
+    - Create Web Service with Docker or direct command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.  
+    - Set `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `ALLOWED_ORIGINS`.  
+    **Validation:** Curl health check endpoint on public URL.  
+    _Reference: Infrastructure Notes: Backend Hosting_
+
+48. **Deploy background worker to Render**  
+    - Create Background Worker service: `python worker.py`.  
+    - Attach same environment variables as backend.  
+    **Validation:** Verify worker logs show processing of new uploads.  
+    _Reference: Infrastructure Notes: Background Worker_
+
+49. **Configure Supabase RLS and policies**  
+    In Supabase SQL editor, enable Row-Level Security on each table and add policies to restrict by `project_id` and user role.  
+    **Validation:** Attempt unauthorized query; expect `permission denied`.  
+    _Reference: Data Security & Compliance_
+
+50. **End-to-End testing with Cypress**  
+    - Install `cypress` in `frontend` devDependencies.  
+    - Write tests for login, upload, compare, work order download.  
+    - Run `npx cypress run` against deployed staging URL.  
+    **Validation:** All tests pass.  
+    _Reference: Q&A: Pre-Launch Checklist_
+
+---
+**Note:** Always review each step’s prevalidation (Phase 1 Step 1) before execution to avoid redundancy or conflicts.

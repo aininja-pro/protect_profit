@@ -1,0 +1,54 @@
+---
+description: Apply these rules when making changes to the project
+globs:
+alwaysApply: true
+---
+
+Update this rule if user requested changes to the project requirement, etc.
+# App Flow Document for Operation Protect Profit
+
+## Onboarding and Sign-In/Sign-Up
+
+When a new user first arrives at the Operation Protect Profit web app, they are greeted by a clean landing page displaying the TeamBuilders SRQ logo, a brief tagline about post-sale bid comparison, and a prominent call-to-action button labeled “Get Started.” Below this button are links to a short overview of features and a contact address for support. New users receive an invitation by email from an administrator or are prompted to request access via a form. Upon entering their work email, they receive a magic link that they click to instantly authenticate and create their account without needing to set a password. If the organization later enables Google SSO, the landing page will also offer a “Continue with Google” button alongside the magic link flow. Existing users return to the landing page, click the “Sign In” link, and enter their email to receive a fresh magic link. A footer link labeled “Trouble Signing In?” provides guidance to contact support if they do not receive their magic link. Once authenticated, the user is directed to the main dashboard. To sign out, they open their profile menu in the header and select “Sign Out,” which clears the session. If an invited user enters an email not yet approved, they see a friendly message indicating that their request is pending admin approval.
+
+## Main Dashboard or Home Page
+
+After signing in, the user lands on the dashboard, which is structured into three tabs labeled Active Projects, Draft Projects, and Completed Projects. Each tab presents a horizontal row of card components showing key details such as project name, location, type, target margin, and status. A prominent “Create Project” button sits in the header area, along with a global search field for locating projects by name or ID. To the left, a collapsible sidebar contains navigation links to Projects, Templates, Audit Trail, and Administration (visible only to admins). The header bar also shows the TeamBuilders logo on the left, the user’s name on the right with a dropdown for account settings, and a notification bell icon for system alerts. From this dashboard, users can click on any project card to open its overview or use the Create Project button to launch the new project flow.
+
+## Detailed Feature Flows and Page Transitions
+
+### Project Creation and Overview
+
+When the user clicks Create Project, a modal dialog appears requesting project name, type, location, and target margin. Upon submitting, the system generates a unique Project ID, saves the record, and redirects the user to the Project Overview page. The Project Overview is laid out in a tabbed interface with Budget, Quotes, Compare, Decision, and Audit Trail tabs visible across the top.
+
+### Budget Upload and Parsing Flow
+
+In the Budget tab, the user clicks the Upload Budget button, which opens a file picker restricted to CSV or XLSX files. Once the file is selected, an upload progress overlay appears. Behind the scenes, the file is stored to S3 and a background worker begins parsing it. The UI shows a live progress indicator until parsing completes. Then a preview table renders the parsed divisions, line items, quantities, units, material, labor, equipment costs, and scope notes. The user reviews the preview and clicks Confirm Import to finalize the budget items. If they need to make adjustments, they can reopen the import preview and correct any misaligned fields before confirming.
+
+### Quote Upload and AI Parsing Flow
+
+Switching to the Quotes tab, the user sees a button labeled Add Quote. Clicking it opens a form where they upload a PDF, DOCX, or CSV file and select the corresponding trade from a dropdown. As each file uploads, a thumbnail card appears showing the file name, trade label, and a status badge. Once the user has uploaded all vendor quotes for each trade, they press the Parse All button. This triggers OCR for scanned documents and an LLM parsing job. A progress bar at the top of the tab updates as each file completes. After parsing, each quote card displays a summary of items extracted and a Normalize toggle to align terminology and units. The user can manually override mappings or unit conversions on each quote card before proceeding to the comparison.
+
+### Side-by-Side Comparison Flow
+
+When the user navigates to the Compare tab, the page shows a comparison table with budget line items as rows and each vendor’s bid as a separate column. Color-coded flags mark missing scope in red, outliers in yellow, and unit mismatches in blue. Above the table, a Variance Summary card displays budget total versus lowest, highest, and average vendor totals. Inline suggestion chips offer AI-generated questions for flagged items, which the user can click to copy into an email draft. The table header remains sticky while scrolling. To view details for a specific line item, the user clicks the row, opening a slide-in panel that shows budget details alongside quote entries and any notes or overrides.
+
+### Decision and Work Order Generation Flow
+
+In the Decision tab, the user sees a list of trades with radio buttons or drop-down selectors to choose a preferred vendor per trade. Below each selection, an editable mini table displays the normalized scope items and prices. The user may adjust quantities or prices and enter decision notes. A live PDF preview pane on the right shows the work order template populated with project header, vendor contact info, scope table, payment terms, timeline, and signature fields. After verifying content, the user clicks Generate Work Order, which locks the decision, creates the PDF and DOCX files, and makes them available for download. The work order automatically changes status to Pending Approval if approver roles are configured.
+
+### Approval and Audit Trail Flow
+
+Once a work order is generated, approvers assigned to the project receive a notification. In the Audit Trail tab, approvers review a chronological list of actions including uploads, parsing runs, vendor selections, and work order generation. Each entry shows timestamp, user, action description, and a before-and-after snapshot link for critical edits. Approvers can click an Approve button next to the work order event, which changes its status to Issued and seals the audit entry. If revisions are needed, they click Request Revision, adding comments that notify the project manager to revisit the Decision tab.
+
+## Settings and Account Management
+
+Users access account settings by clicking their name in the header and selecting Profile. On the Profile page, they can update display name, email preferences, and notification settings, including email notifications for parsing completions, approval requests, and system alerts. There is no password to manage because of the magic link flow. Administrators see an additional Users section under Administration in the sidebar where they can invite new users by email, assign roles, and deactivate accounts. The admin settings also include buckets for storage retention policies, audit log retention duration, and integration keys for OpenAI, Anthropic, and SSO providers. Whenever a user saves changes in settings, a toast notification confirms success and the user may click a link to return to the dashboard or any project overview.
+
+## Error States and Alternate Paths
+
+If a user uploads an unsupported file format or a file exceeding the 10 MB limit, an inline error banner appears near the upload control explaining the issue and offering a link to learn more about supported formats. During AI parsing or OCR, if the service returns an error or times out, the UI displays a yellow warning banner that parsing failed for specific files, with a Retry button. In case of network interruptions, the app triggers a global error overlay advising the user to check connectivity and retry. When a user attempts to access a project they are not authorized to see, a 403-style page with the message “Access Denied” guides them to contact an administrator. All unexpected errors are logged client-side and server-side, and a user-friendly message invites them to submit feedback. If the background worker fails repeatedly for a file, an admin sees a notification in the Administration panel and can reassign the parse job or investigate logs.
+
+## Conclusion and Overall App Journey
+
+From the first magic link sign-in to the final approved work order, Operation Protect Profit guides project managers through creating a project, importing an Excel budget, uploading and tagging vendor quotes, and running an AI-powered parse and normalization process. The side-by-side comparison table surfaces discrepancies and variance insights, while AI-generated questions speed vendor clarifications. The decision workflow locks in vendor selections and scope edits, producing professional PDF and DOCX work orders. Each step is logged in an immutable audit trail and subject to role-based approval. Users manage their account settings and administrators control users, retention policies, and integrations. At every turn, clear progress indicators, preview panels, and error handling ensure a transparent and efficient experience from project inception through final issuance of work orders.
