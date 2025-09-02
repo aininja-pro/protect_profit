@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 
 interface QuoteScopeModalProps {
   isOpen: boolean;
   onClose: () => void;
   division: any;
   preSelectedSubcategory?: string;
+  projectId: string;
 }
 
 export default function QuoteScopeModal({ 
   isOpen, 
   onClose, 
   division,
-  preSelectedSubcategory 
+  preSelectedSubcategory,
+  projectId
 }: QuoteScopeModalProps) {
   const [scopeType, setScopeType] = useState<'division' | 'subcategory' | 'custom'>('subcategory');
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
@@ -21,6 +26,15 @@ export default function QuoteScopeModal({
   const [scopeDescription, setScopeDescription] = useState('');
   const [specifications, setSpecifications] = useState('');
   const [exclusions, setExclusions] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
+
+  // Auto-generate scope when modal opens or scope type changes
+  useEffect(() => {
+    if (isOpen) {
+      generateScopeFromSelection();
+    }
+  }, [isOpen, scopeType]);
 
   if (!isOpen) return null;
 
@@ -62,11 +76,117 @@ export default function QuoteScopeModal({
   };
 
   const toggleSubcategory = (subcatName: string) => {
-    setSelectedSubcategories(prev => 
-      prev.includes(subcatName) 
+    setSelectedSubcategories(prev => {
+      const newSelection = prev.includes(subcatName) 
         ? prev.filter(s => s !== subcatName)
-        : [...prev, subcatName]
-    );
+        : [...prev, subcatName];
+      
+      // Auto-generate scope when selection changes
+      generateScopeFromSelection(newSelection);
+      return newSelection;
+    });
+  };
+
+  const generateScopeFromSelection = (selectedSubcats: string[] = selectedSubcategories) => {
+    if (scopeType === 'division') {
+      // Generate scope for entire division
+      const allItems = division.items || [];
+      const scopeText = generateScopeText(division.divisionName, allItems);
+      setScopeDescription(scopeText);
+    } else if (selectedSubcats.length > 0) {
+      // Generate scope for selected subcategories
+      const selectedItems: any[] = [];
+      selectedSubcats.forEach(subcatName => {
+        const subcatItems = subcategoryGroups[subcatName] || [];
+        selectedItems.push(...subcatItems);
+      });
+      
+      const scopeText = generateScopeText(selectedSubcats.join(', '), selectedItems);
+      setScopeDescription(scopeText);
+    }
+  };
+
+  const generateScopeText = (scopeName: string, items: any[]) => {
+    const totalBudget = items.reduce((sum, item) => sum + (item.total_cost || item.totalCost || 0), 0);
+    
+    let scopeText = `SCOPE OF WORK: ${scopeName}\n\n`;
+    scopeText += `This work includes the following items:\n\n`;
+    
+    items.forEach((item, index) => {
+      const desc = item.description || item.tradeDescription;
+      const cleanDesc = desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/) 
+        ? desc.split(':', 2)[1].trim() 
+        : desc;
+      
+      const cost = item.total_cost || item.totalCost || 0;
+      scopeText += `${index + 1}. ${cleanDesc}\n   Budget Allowance: $${cost.toLocaleString()}\n\n`;
+    });
+    
+    scopeText += `TOTAL SCOPE BUDGET: $${totalBudget.toLocaleString()}`;
+    
+    return scopeText;
+  };
+
+  const enhanceWithAI = async () => {
+    setIsEnhancing(true);
+    try {
+      const response = await axios.post(`${API_BASE}/quote-scopes/ai-enhance`, {
+        scope_description: scopeDescription,
+        project_context: {
+          project_id: projectId,
+          division_code: division.divisionCode,
+          division_name: division.divisionName,
+          scope_type: scopeType
+        }
+      }, {
+        timeout: 60000 // 60 second timeout for AI calls
+      });
+      
+      setScopeDescription(response.data.enhanced_rfq);
+      
+      // Show success message
+      if (response.data.ai_used) {
+        alert('✅ Scope enhanced with OpenAI GPT-4! Professional RFQ language generated.');
+      } else {
+        alert('✅ Scope enhanced with smart templates! (OpenAI integration available when API key configured)');
+      }
+      
+    } catch (error: any) {
+      console.error('AI enhancement failed:', error);
+      alert('AI enhancement failed. Please continue with manual editing or try again.');
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
+  const createRFQ = async () => {
+    setIsCreating(true);
+    try {
+      const scopeItems = scopeType === 'division' 
+        ? [`Division ${division.divisionCode} - ${division.divisionName}`]
+        : selectedSubcategories;
+
+      const scopeData = {
+        project_id: projectId,
+        division_code: division.divisionCode,
+        scope_type: scopeType,
+        scope_items: scopeItems,
+        description: scopeDescription || `Work for ${scopeType === 'division' ? 'entire division' : 'selected subcategories'}`,
+        specifications: specifications || 'Per plans and specifications',
+        exclusions: exclusions || 'None specified'
+      };
+
+      const response = await axios.post(`${API_BASE}/quote-scopes/`, scopeData);
+      
+      alert(`RFQ created successfully! Scope ID: ${response.data.scope_id}\n\nNext: Select vendors and send RFQ`);
+      onClose();
+      
+    } catch (error: any) {
+      console.error('Failed to create RFQ:', error);
+      alert('Failed to create RFQ. Please try again.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -211,14 +331,18 @@ export default function QuoteScopeModal({
           </button>
           <div className="flex gap-3">
             <button
-              className="px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors"
+              onClick={enhanceWithAI}
+              disabled={isEnhancing || !scopeDescription.trim()}
+              className="px-4 py-2 border border-primary text-primary rounded hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🤖 Get AI Help
+              {isEnhancing ? '🤖 Enhancing...' : '🤖 Enhance with AI'}
             </button>
             <button
-              className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+              onClick={createRFQ}
+              disabled={isCreating || (scopeType === 'subcategory' && selectedSubcategories.length === 0)}
+              className="px-6 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Create RFQ
+              {isCreating ? 'Creating...' : 'Create RFQ'}
             </button>
           </div>
         </div>

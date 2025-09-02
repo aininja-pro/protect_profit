@@ -501,6 +501,14 @@ export const quotesApi = {
   },
 
   /**
+   * Delete a project and all associated data
+   */
+  async deleteProject(projectId: string): Promise<any> {
+    const response = await axios.delete(`${API_BASE}/projects/${projectId}`);
+    return response.data;
+  },
+
+  /**
    * Check if demo mode is active
    */
   isDemoMode(): boolean {

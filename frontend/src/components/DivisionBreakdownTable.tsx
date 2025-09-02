@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import QuoteScopeModal from './QuoteScopeModal';
+import QuoteComparisonSection from './QuoteComparisonSection';
 
 interface DivisionItem {
   lineId?: string;
@@ -32,6 +34,7 @@ interface DivisionBreakdownTableProps {
   overheadAndProfit?: number;
   jobTotal?: number;
   grandTotalFromItems?: number;
+  projectId: string;
 }
 
 export default function DivisionBreakdownTable({ 
@@ -39,10 +42,20 @@ export default function DivisionBreakdownTable({
   projectSubtotal,
   overheadAndProfit,
   jobTotal,
-  grandTotalFromItems
+  grandTotalFromItems,
+  projectId
 }: DivisionBreakdownTableProps) {
+  const [isQuoteScopeModalOpen, setIsQuoteScopeModalOpen] = useState(false);
+  const [selectedDivision, setSelectedDivision] = useState<any>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | undefined>(undefined);
+  
+  const handleRequestQuotes = (division: any, subcategory?: string) => {
+    setSelectedDivision(division);
+    setSelectedSubcategory(subcategory);
+    setIsQuoteScopeModalOpen(true);
+  };
   return (
-    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+    <div className="bg-gray-50 rounded-lg p-4 h-[70vh] overflow-y-auto">
       {divisions.map((division: any, divIndex: number) => (
         <div key={divIndex} className="mb-4 last:mb-0">
           {/* Division Header */}
@@ -55,9 +68,17 @@ export default function DivisionBreakdownTable({
                 {division.items?.length || 0} items
               </span>
             </div>
-            <span className="font-bold text-lg text-green-600">
-              ${division.divisionTotal?.toLocaleString() || '0'}
-            </span>
+            <div className="flex items-center gap-3">
+              <button 
+                className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark transition-colors"
+                onClick={() => handleRequestQuotes(division)}
+              >
+                Request Quotes
+              </button>
+              <span className="font-bold text-lg text-green-600">
+                ${division.divisionTotal?.toLocaleString() || '0'}
+              </span>
+            </div>
           </div>
           
           {/* Division Items - Grouped by Subcategory */}
@@ -104,10 +125,25 @@ export default function DivisionBreakdownTable({
                             <div className="font-semibold text-gray-900">
                               {subcategoryName}
                             </div>
-                            <span className="font-bold text-blue-700">
-                              ${subcategoryTotal.toLocaleString()}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <button 
+                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                onClick={() => handleRequestQuotes(division, subcategoryName)}
+                              >
+                                Quote This
+                              </button>
+                              <span className="font-bold text-blue-700">
+                                ${subcategoryTotal.toLocaleString()}
+                              </span>
+                            </div>
                           </div>
+                          
+                          {/* Quote Comparison Section (expandable) */}
+                          <QuoteComparisonSection 
+                            subcategoryName={subcategoryName}
+                            division={division}
+                          />
+                          
                           {/* Items under this subcategory */}
                           <div className="ml-6 space-y-1">
                             {items.map((item: any, itemIndex: number) => (
@@ -198,6 +234,17 @@ export default function DivisionBreakdownTable({
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Quote Scope Modal */}
+      {selectedDivision && (
+        <QuoteScopeModal 
+          isOpen={isQuoteScopeModalOpen}
+          onClose={() => setIsQuoteScopeModalOpen(false)}
+          division={selectedDivision}
+          preSelectedSubcategory={selectedSubcategory}
+          projectId={projectId}
+        />
       )}
     </div>
   );

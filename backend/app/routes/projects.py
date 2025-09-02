@@ -133,6 +133,43 @@ async def get_project(project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching project: {str(e)}")
 
+@router.delete("/{project_id}")
+async def delete_project(project_id: str = Path(...)):
+    """Delete a project and all associated data"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Verify project exists
+        project_check = supabase.table("projects").select("id").eq("id", project_id).execute()
+        if not project_check.data:
+            raise HTTPException(status_code=404, detail="Project not found")
+        
+        # Delete associated data in order (respect foreign key constraints)
+        # 1. Delete budget items
+        supabase.table("budget_items").delete().eq("project_id", project_id).execute()
+        
+        # 2. Delete vendor quotes
+        supabase.table("vendor_quotes").delete().eq("project_id", project_id).execute()
+        
+        # 3. Delete files
+        supabase.table("files").delete().eq("project_id", project_id).execute()
+        
+        # 4. Delete audit logs
+        supabase.table("audit_logs").delete().eq("project_id", project_id).execute()
+        
+        # 5. Delete the project itself
+        result = supabase.table("projects").delete().eq("id", project_id).execute()
+        
+        return {
+            "message": "Project deleted successfully",
+            "project_id": project_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
+
 @router.get("/{project_id}/divisions")
 async def get_project_divisions(project_id: str = Path(...)):
     """Get divisions and budget items for a project"""

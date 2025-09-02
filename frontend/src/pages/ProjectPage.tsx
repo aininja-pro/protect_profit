@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
-import DivisionManager from '../components/DivisionManager';
 import DivisionBreakdownTable from '../components/DivisionBreakdownTable';
 import AIAssistant from '../components/AIAssistant';
 import { quotesApi, Division } from '../services/quotesApi';
@@ -202,15 +201,10 @@ export default function ProjectPage() {
               overheadAndProfit={projectTotals?.overheadAndProfit || 157407.43}
               jobTotal={projectTotals?.jobTotal || 1031893.14}
               grandTotalFromItems={projectTotals?.projectSubtotal || 874485.71}
+              projectId={projectId || ''}
             />
           </div>
 
-          {/* Division Management */}
-          <DivisionManager
-            divisions={divisions}
-            divisionStatuses={divisionStatuses}
-            projectId={projectId}
-          />
         </div>
       )}
       
