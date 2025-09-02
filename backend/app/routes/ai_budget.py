@@ -69,11 +69,13 @@ async def smart_budget_upload(
                 budget_item = {
                     'division': division.get('divisionCode', ''),
                     'description': item.get('tradeDescription', ''),
+                    'subcategory_code': item.get('subcategoryCode'),
+                    'subcategory_name': item.get('subcategoryName'),
                     'quantity': item.get('quantity'),
                     'unit': item.get('unit', 'LS'),
                     'unit_cost': (item.get('totalCost', 0) / item.get('quantity', 1)) if item.get('quantity') and item.get('quantity') > 0 else 0,
                     'total_cost': item.get('totalCost', 0),
-                    'notes': f"Material: ${item.get('materialCost', 0) or 0:.2f}, Labor: ${item.get('laborCost', 0) or 0:.2f}, Sub/Equip: ${item.get('subEquipCost', 0) or 0:.2f}"
+                    'notes': f"Division: {division.get('divisionName', '')} | Material: ${item.get('materialCost', 0) or 0:.2f}, Labor: ${item.get('laborCost', 0) or 0:.2f}, Sub/Equip: ${item.get('subEquipCost', 0) or 0:.2f}"
                 }
                 if item.get('scopeNotes'):
                     budget_item['notes'] += f" | Scope: {item.get('scopeNotes')}"
@@ -87,6 +89,10 @@ async def smart_budget_upload(
         
         # Step 3: Store in database
         supabase = get_supabase_client()
+        
+        # Clear existing budget items for this project to prevent duplicates
+        print(f"Clearing existing budget items for project {project_id}")
+        supabase.table("budget_items").delete().eq("project_id", project_id).execute()
         
         # Verify project exists
         project_check = supabase.table("projects").select("id").eq("id", project_id).execute()

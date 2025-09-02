@@ -45,6 +45,7 @@ def parse_estimate_xlsx(xlsx_path: str, sheet_name: str = None) -> dict:
     # Step 3 — Parse items up to, but not including, the Project Subtotal row
     divisions = []
     current_division = None
+    current_subcategory = None
     
     # Iterate rows from 6 to project_subtotal_idx - 1
     for row_idx in range(6, project_subtotal_idx):
@@ -53,35 +54,91 @@ def parse_estimate_xlsx(xlsx_path: str, sheet_name: str = None) -> dict:
         # Division detection: when column A is 1–2 digit int
         div_code_raw = str(row.iloc[0]).strip()
         if re.match(r'^\d{1,2}$', div_code_raw):
-            # Close previous division
+            division_name = str(row.iloc[2]).strip()
+            
+            # Check if this is a subtotal row for the current division
+            if (current_division and 
+                current_division['divisionCode'] == div_code_raw.zfill(2) and 
+                'subtotal' in division_name.lower()):
+                # This is the subtotal row for the current division
+                subtotal_amount = _parse_currency(row.iloc[12])  # M column
+                if subtotal_amount > 0:
+                    current_division['subtotalFound'] = True
+                    current_division['subtotalAmount'] = subtotal_amount
+                    print(f"  Found {current_division['divisionName']} Subtotal: ${subtotal_amount:.2f}")
+                continue
+            
+            # Close previous division if this is a new division (not subtotal)
             if current_division and current_division['items']:
                 _finalize_division(current_division)
                 divisions.append(current_division)
             
-            # Start new division
-            division_code = div_code_raw.zfill(2)
-            division_name = str(row.iloc[2]).strip()
-            current_division = {
-                'divisionCode': division_code,
-                'divisionName': division_name,
+            # Start new division (skip if this is a subtotal row)
+            if 'subtotal' not in division_name.lower():
+                division_code = div_code_raw.zfill(2)
+                current_division = {
+                    'divisionCode': division_code,
+                    'divisionName': division_name,
+                    'subcategories': {},  # Will hold subcategory groupings
+                    'items': [],  # Flat list for backward compatibility
+                    'subtotalFound': False,
+                    'subtotalAmount': 0.0
+                }
+                current_subcategory = None
+                print(f"Started Division {division_code}: {division_name}")
+            continue
+        
+        # Subcategory detection: when column B has pattern like "1100 - Permit"
+        subcat_code_raw = str(row.iloc[1]).strip()
+        if subcat_code_raw and subcat_code_raw != 'nan':
+            print(f"  DEBUG Row {row_idx} Col B: '{subcat_code_raw}' (type: {type(row.iloc[1])})")
+        
+        # Match pattern "1100 - Description" to detect subcategory headers
+        if re.match(r'^\d{4}\s*-\s*.+', subcat_code_raw) and current_division:
+            # This is a subcategory header - use the full string as the subcategory name
+            current_subcategory = {
+                'subcategoryCode': subcat_code_raw.split(' - ')[0],  # Just the code part for ID
+                'subcategoryName': subcat_code_raw,  # Full string for display
                 'items': []
             }
-            print(f"Started Division {division_code}: {division_name}")
+            
+            # Store subcategory in division
+            current_division['subcategories'][current_subcategory['subcategoryCode']] = current_subcategory
+            print(f"  Started Subcategory {current_subcategory['subcategoryCode']}: {subcat_code_raw}")
             continue
+        
+        # Get description early for all checks
+        description = str(row.iloc[2]).strip()
+        
+        # Look for division subtotal rows (e.g., "General Conditions Subtotal")
+        if current_division and 'subtotal' in description.lower():
+            # Check if this matches the current division name + "subtotal"
+            division_name_lower = current_division['divisionName'].lower()
+            if division_name_lower in description.lower():
+                subtotal_amount = _parse_currency(row.iloc[12])  # M column
+                if subtotal_amount > 0:
+                    current_division['subtotalFound'] = True
+                    current_division['subtotalAmount'] = subtotal_amount
+                    print(f"  Found {current_division['divisionName']} Subtotal: ${subtotal_amount:.2f}")
+                continue
         
         # Skip if no current division
         if not current_division:
             continue
         
-        # Get description
-        description = str(row.iloc[2]).strip()
-        
         # Skip empty descriptions
         if not description or description == 'nan':
             continue
         
-        # Skip summary rows (case-insensitive, end-anchored)
-        skip_patterns = [r'(subtotal|job total|payment terms|accepted by|terms|warranty)$']
+        # Skip summary rows (case-insensitive, end-anchored) - expanded patterns
+        skip_patterns = [
+            r'(subtotal|job total|payment terms|accepted by|terms|warranty)$',
+            r'(allowance total|division total|section total|category total)$', 
+            r'(overhead|profit|contingency|fee)$',
+            r'(total|sum|amount due)$',
+            r'(notes?|assumptions?|exclusions?)$',
+            r'^footings?$'  # Skip standalone "Footings" entries
+        ]
         if any(re.search(pattern, description, re.IGNORECASE) for pattern in skip_patterns):
             continue
         
@@ -96,14 +153,18 @@ def parse_estimate_xlsx(xlsx_path: str, sheet_name: str = None) -> dict:
             # Calculate total
             calc_total = total_cost if total_cost > 0 else (material_cost + labor_cost + subequip_cost)
             
+            # DEBUG: Log exactly which row is being processed
+            print(f"  DEBUG Row {row_idx}: '{description}' - M=${total_cost}, H=${material_cost}, J=${labor_cost}, L=${subequip_cost}")
+            
             # Extract other fields
             quantity = _parse_number(row.iloc[3])  # D
             unit = _normalize_unit(str(row.iloc[4]).strip())  # E
             scope_notes = str(row.iloc[13]).strip() if str(row.iloc[13]).strip() != 'nan' else None  # N
             estimating_notes = str(row.iloc[14]).strip() if str(row.iloc[14]).strip() != 'nan' else None  # O
             
-            # Build lineId
-            line_id = f"{current_division['divisionCode']}-{_slugify(description)[:24]}-{row_idx}"
+            # Build lineId with subcategory if available
+            subcat_prefix = f"{current_subcategory['subcategoryCode']}-" if current_subcategory else ""
+            line_id = f"{current_division['divisionCode']}-{subcat_prefix}{_slugify(description)[:24]}-{row_idx}"
             
             item = {
                 'lineId': line_id,
@@ -115,10 +176,15 @@ def parse_estimate_xlsx(xlsx_path: str, sheet_name: str = None) -> dict:
                 'subEquipCost': round(subequip_cost, 2),
                 'totalCost': round(calc_total, 2),
                 'scopeNotes': scope_notes,
-                'estimatingNotes': estimating_notes
+                'estimatingNotes': estimating_notes,
+                'subcategoryCode': current_subcategory['subcategoryCode'] if current_subcategory else None,
+                'subcategoryName': current_subcategory['subcategoryName'] if current_subcategory else None
             }
             
+            # Add to both subcategory and division level
             current_division['items'].append(item)
+            if current_subcategory:
+                current_subcategory['items'].append(item)
             print(f"  Added item: {description[:40]} - ${calc_total:.2f}")
     
     # Step 4 — Close last division, compute totals
@@ -217,10 +283,20 @@ def save_project_json(data: dict, out_path: str) -> None:
 
 # Helper functions
 def _finalize_division(division: dict) -> None:
-    """Calculate division total from items"""
-    division_total = sum(item['totalCost'] for item in division['items'])
-    division['divisionTotal'] = round(division_total, 2)
-    print(f"  Division {division['divisionCode']} total: ${division_total:.2f} ({len(division['items'])} items)")
+    """Calculate division total - use subtotal if found, otherwise sum items"""
+    if division.get('subtotalFound') and division.get('subtotalAmount', 0) > 0:
+        # Use the official subtotal from Excel
+        division['divisionTotal'] = round(division['subtotalAmount'], 2)
+        print(f"  Division {division['divisionCode']} total: ${division['subtotalAmount']:.2f} (from subtotal row, {len(division['items'])} items)")
+    else:
+        # Fallback to summing items
+        division_total = sum(item['totalCost'] for item in division['items'])
+        division['divisionTotal'] = round(division_total, 2)
+        print(f"  Division {division['divisionCode']} total: ${division_total:.2f} (calculated from {len(division['items'])} items)")
+    
+    # Remove the tracking fields
+    division.pop('subtotalFound', None)
+    division.pop('subtotalAmount', None)
 
 
 def _parse_currency(value) -> float:
