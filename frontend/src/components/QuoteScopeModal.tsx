@@ -178,7 +178,20 @@ export default function QuoteScopeModal({
 
       const response = await axios.post(`${API_BASE}/quote-scopes/`, scopeData);
       
-      alert(`RFQ created successfully! Scope ID: ${response.data.scope_id}\n\nNext: Select vendors and send RFQ`);
+      // Show success with download options
+      const downloadWord = window.confirm(
+        `✅ RFQ created successfully!\n\nScope ID: ${response.data.scope_id}\n\n` +
+        `Would you like to download a professional Word document (.docx) for editing and sending to vendors?\n\n` +
+        `• Click OK to download Word document\n` +
+        `• Click Cancel to continue without download`
+      );
+      
+      if (downloadWord) {
+        // Trigger Word document download
+        const downloadUrl = `${API_BASE}/quote-scopes/${response.data.scope_id}/download-word`;
+        window.open(downloadUrl, '_blank');
+      }
+      
       onClose();
       
     } catch (error: any) {

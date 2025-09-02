@@ -7,6 +7,8 @@ from datetime import datetime
 
 from ..db import get_supabase_client
 from ..services.ai_rfq_generator import ai_rfq_generator
+from ..services.word_rfq_generator import word_rfq_generator
+from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/quote-scopes", tags=["quote-scopes"])
 
@@ -199,3 +201,37 @@ async def enhance_scope_with_ai(request: Dict[str, Any]):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error enhancing scope: {str(e)}")
+
+@router.get("/{scope_id}/download-word")
+async def download_rfq_word_doc(scope_id: str = Path(...)):
+    """Generate and download a Word document RFQ"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get scope details
+        scope_result = supabase.table("quote_scopes").select("*").eq("id", scope_id).execute()
+        if not scope_result.data:
+            raise HTTPException(status_code=404, detail="Quote scope not found")
+        
+        scope = scope_result.data[0]
+        
+        # Get project details
+        project_result = supabase.table("projects").select("*").eq("id", scope["project_id"]).execute()
+        project = project_result.data[0] if project_result.data else {}
+        
+        # Generate Word document
+        file_path = word_rfq_generator.generate_rfq_document(scope, project)
+        
+        # Return file for download
+        filename = f"RFQ_{project.get('name', 'Project').replace(' ', '_')}_{scope.get('scope_type', 'scope')}.docx"
+        
+        return FileResponse(
+            file_path,
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            filename=filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating Word document: {str(e)}")
