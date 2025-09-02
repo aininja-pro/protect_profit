@@ -22,7 +22,7 @@ export default function QuoteScopeModal({
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>(
     preSelectedSubcategory ? [preSelectedSubcategory] : []
   );
-  const [selectedLineItems, setSelectedLineItems] = useState<string[]>([]);
+  const [selectedLineItems, setSelectedLineItems] = useState<{[subcatName: string]: string[]}>({});
   const [scopeDescription, setScopeDescription] = useState('');
   const [specifications, setSpecifications] = useState('');
   const [exclusions, setExclusions] = useState('');
@@ -68,7 +68,20 @@ export default function QuoteScopeModal({
     } else {
       Object.entries(subcategoryGroups).forEach(([subcatName, items]) => {
         if (selectedSubcategories.includes(subcatName)) {
-          total += items.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0);
+          const selectedLineItemIds = selectedLineItems[subcatName] || [];
+          
+          if (selectedLineItemIds.length > 0) {
+            // Only include selected line items
+            items.forEach(item => {
+              const itemId = item.lineId || item.id || `item-${items.indexOf(item)}`;
+              if (selectedLineItemIds.includes(itemId)) {
+                total += item.total_cost || item.totalCost || 0;
+              }
+            });
+          } else {
+            // Include all items in subcategory
+            total += items.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0);
+          }
         }
       });
     }
@@ -81,26 +94,80 @@ export default function QuoteScopeModal({
         ? prev.filter(s => s !== subcatName)
         : [...prev, subcatName];
       
+      // When unchecking subcategory, remove its line items
+      if (!newSelection.includes(subcatName)) {
+        setSelectedLineItems(prevItems => {
+          const newItems = { ...prevItems };
+          delete newItems[subcatName];
+          return newItems;
+        });
+      }
+      
       // Auto-generate scope when selection changes
       generateScopeFromSelection(newSelection);
       return newSelection;
     });
   };
 
-  const generateScopeFromSelection = (selectedSubcats: string[] = selectedSubcategories) => {
+  const toggleLineItem = (subcatName: string, itemId: string) => {
+    setSelectedLineItems(prev => {
+      const subcatItems = prev[subcatName] || [];
+      const newSubcatItems = subcatItems.includes(itemId)
+        ? subcatItems.filter(id => id !== itemId)
+        : [...subcatItems, itemId];
+      
+      const newSelection = { ...prev };
+      if (newSubcatItems.length === 0) {
+        delete newSelection[subcatName];
+      } else {
+        newSelection[subcatName] = newSubcatItems;
+      }
+      
+      // Auto-generate scope when line items change - pass the new state directly
+      setTimeout(() => {
+        console.log('Line item changed, regenerating scope with selectedLineItems:', newSelection);
+        generateScopeFromSelection(selectedSubcategories, newSelection);
+      }, 100);
+      return newSelection;
+    });
+  };
+
+  const generateScopeFromSelection = (selectedSubcats: string[] = selectedSubcategories, lineItemSelections: {[key: string]: string[]} = selectedLineItems) => {
     if (scopeType === 'division') {
       // Generate scope for entire division
       const allItems = division.items || [];
       const scopeText = generateScopeText(division.divisionName, allItems);
       setScopeDescription(scopeText);
     } else if (selectedSubcats.length > 0) {
-      // Generate scope for selected subcategories
+      // Generate scope for selected subcategories with optional line item filtering
       const selectedItems: any[] = [];
       selectedSubcats.forEach(subcatName => {
         const subcatItems = subcategoryGroups[subcatName] || [];
-        selectedItems.push(...subcatItems);
+        const selectedLineItemIds = lineItemSelections[subcatName] || [];
+        
+        console.log(`Processing ${subcatName}:`, {
+          totalItems: subcatItems.length,
+          selectedLineItemIds,
+          hasLineItemSelections: selectedLineItemIds.length > 0
+        });
+        
+        if (selectedLineItemIds.length > 0) {
+          // Only include specific line items
+          subcatItems.forEach(item => {
+            const itemId = item.lineId || item.id || `item-${subcatItems.indexOf(item)}`;
+            if (selectedLineItemIds.includes(itemId)) {
+              console.log(`Including selected item:`, item.description || item.tradeDescription);
+              selectedItems.push(item);
+            }
+          });
+        } else {
+          // Include all items in subcategory
+          console.log(`Including all items in ${subcatName}`);
+          selectedItems.push(...subcatItems);
+        }
       });
       
+      console.log('Final selected items for scope:', selectedItems.length);
       const scopeText = generateScopeText(selectedSubcats.join(', '), selectedItems);
       setScopeDescription(scopeText);
     }
@@ -110,17 +177,66 @@ export default function QuoteScopeModal({
     const totalBudget = items.reduce((sum, item) => sum + (item.total_cost || item.totalCost || 0), 0);
     
     let scopeText = `SCOPE OF WORK: ${scopeName}\n\n`;
-    scopeText += `This work includes the following items:\n\n`;
     
-    items.forEach((item, index) => {
-      const desc = item.description || item.tradeDescription;
-      const cleanDesc = desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/) 
-        ? desc.split(':', 2)[1].trim() 
-        : desc;
+    if (scopeType === 'division') {
+      // For division-level quotes, organize by subcategory
+      scopeText += `This work includes the following subcategories:\n\n`;
       
-      const cost = item.total_cost || item.totalCost || 0;
-      scopeText += `${index + 1}. ${cleanDesc}\n   Budget Allowance: $${cost.toLocaleString()}\n\n`;
-    });
+      // Group items by subcategory
+      const subcatMap: {[key: string]: any[]} = {};
+      items.forEach(item => {
+        const subcatCode = item.subcategory_code || item.subcategoryCode;
+        const subcatName = item.subcategory_name || item.subcategoryName;
+        
+        let finalSubcatName = subcatName;
+        if (!subcatName && item.description && item.description.includes(':')) {
+          const parts = item.description.split(':');
+          if (parts[0].match(/\d{4}\s*-/)) {
+            finalSubcatName = parts[0].trim();
+          }
+        }
+        
+        if (finalSubcatName) {
+          if (!subcatMap[finalSubcatName]) {
+            subcatMap[finalSubcatName] = [];
+          }
+          subcatMap[finalSubcatName].push(item);
+        }
+      });
+      
+      // Generate subcategory structure
+      let subcatIndex = 1;
+      Object.entries(subcatMap).forEach(([subcatName, subcatItems]) => {
+        const subcatTotal = subcatItems.reduce((sum, item) => sum + (item.total_cost || item.totalCost || 0), 0);
+        scopeText += `${subcatIndex}.${subcatIndex} ${subcatName}\n`;
+        scopeText += `   Subcategory Budget: $${subcatTotal.toLocaleString()}\n`;
+        
+        subcatItems.forEach(item => {
+          const desc = item.description || item.tradeDescription;
+          const cleanDesc = desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/) 
+            ? desc.split(':', 2)[1].trim() 
+            : desc;
+          const cost = item.total_cost || item.totalCost || 0;
+          scopeText += `   • ${cleanDesc} - $${cost.toLocaleString()}\n`;
+        });
+        
+        scopeText += `\n`;
+        subcatIndex++;
+      });
+    } else {
+      // For subcategory-level quotes, show individual items
+      scopeText += `This work includes the following items:\n\n`;
+      
+      items.forEach((item, index) => {
+        const desc = item.description || item.tradeDescription;
+        const cleanDesc = desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/) 
+          ? desc.split(':', 2)[1].trim() 
+          : desc;
+        
+        const cost = item.total_cost || item.totalCost || 0;
+        scopeText += `${index + 1}. ${cleanDesc}\n   Budget Allowance: $${cost.toLocaleString()}\n\n`;
+      });
+    }
     
     scopeText += `TOTAL SCOPE BUDGET: $${totalBudget.toLocaleString()}`;
     
@@ -274,18 +390,39 @@ export default function QuoteScopeModal({
                     
                     {isSelected && (
                       <div className="mt-2 ml-6 space-y-1">
-                        {items.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-sm text-gray-600">
-                            <span>{(() => {
-                              const desc = item.description || item.tradeDescription;
-                              if (desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/)) {
-                                return desc.split(':', 2)[1].trim();
-                              }
-                              return desc;
-                            })()}</span>
-                            <span>${(item.total_cost || item.totalCost)?.toLocaleString() || '0'}</span>
-                          </div>
-                        ))}
+                        <div className="text-xs text-blue-600 font-medium mb-2">
+                          Select specific line items (optional - leave unchecked to quote entire subcategory):
+                        </div>
+                        {items.map((item: any, idx: number) => {
+                          const itemId = item.lineId || item.id || `item-${idx}`;
+                          const isLineItemSelected = selectedLineItems[subcatName]?.includes(itemId) || false;
+                          
+                          return (
+                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                              <label className="flex items-center flex-1 cursor-pointer">
+                                <input 
+                                  type="checkbox"
+                                  checked={isLineItemSelected}
+                                  onChange={() => toggleLineItem(subcatName, itemId)}
+                                  className="mr-3"
+                                />
+                                <span className="text-sm text-gray-700">{(() => {
+                                  const desc = item.description || item.tradeDescription;
+                                  if (desc && desc.includes(':') && desc.match(/^\d{4}\s*-[^:]*:/)) {
+                                    return desc.split(':', 2)[1].trim();
+                                  }
+                                  return desc;
+                                })()}</span>
+                              </label>
+                              <span className="text-sm font-medium text-gray-900 ml-3">
+                                ${(item.total_cost || item.totalCost)?.toLocaleString() || '0'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        <div className="text-xs text-gray-500 mt-2">
+                          💡 Tip: Leave all unchecked to quote the entire "{subcatName}" subcategory
+                        </div>
                       </div>
                     )}
                   </div>
