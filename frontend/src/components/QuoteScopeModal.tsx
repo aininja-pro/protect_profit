@@ -28,6 +28,7 @@ export default function QuoteScopeModal({
   const [exclusions, setExclusions] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
+  const [showScopeEditor, setShowScopeEditor] = useState(false);
 
   // Auto-generate scope when modal opens or scope type changes
   useEffect(() => {
@@ -441,12 +442,21 @@ export default function QuoteScopeModal({
 
         {/* Scope Writing Section */}
         <div className="mb-6">
-          <h3 className="font-semibold mb-3">Scope Description:</h3>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="font-semibold">Scope Description:</h3>
+            <button
+              onClick={() => setShowScopeEditor(true)}
+              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            >
+              📝 Expand Editor
+            </button>
+          </div>
           <textarea
             value={scopeDescription}
             onChange={(e) => setScopeDescription(e.target.value)}
             placeholder="Describe the work to be performed, including all requirements and expectations..."
-            className="w-full h-32 border rounded p-3 resize-none"
+            className="w-full h-32 border rounded p-3 resize-none text-sm"
+            readOnly={showScopeEditor}
           />
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -497,6 +507,54 @@ export default function QuoteScopeModal({
           </div>
         </div>
       </div>
+      
+      {/* Expanded Scope Editor Modal */}
+      {showScopeEditor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-[90vw] h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Edit Scope Description</h3>
+              <button 
+                onClick={() => setShowScopeEditor(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex-1 flex flex-col">
+              <textarea
+                value={scopeDescription}
+                onChange={(e) => setScopeDescription(e.target.value)}
+                placeholder="Describe the work to be performed, including all requirements and expectations..."
+                className="flex-1 border rounded p-4 resize-none font-mono text-sm leading-relaxed"
+                style={{ minHeight: '400px' }}
+              />
+              
+              <div className="flex justify-between items-center mt-4">
+                <div className="text-sm text-gray-500">
+                  💡 Tip: Use this expanded editor to review and refine the AI-enhanced scope
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowScopeEditor(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={enhanceWithAI}
+                    disabled={isEnhancing}
+                    className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark disabled:opacity-50"
+                  >
+                    {isEnhancing ? '🤖 Enhancing...' : '🤖 Enhance Again'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

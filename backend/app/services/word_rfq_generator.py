@@ -205,55 +205,85 @@ class WordRFQGenerator:
     def _add_ai_enhanced_content(self, doc: Document, content: str):
         """Parse AI-enhanced content and format it properly"""
         lines = content.strip().split('\n')
-        current_section = None
         
         for line in lines:
             line = line.strip()
             if not line:
                 continue
                 
-            # Skip title lines that duplicate table info
-            if any(skip in line.upper() for skip in ['REQUEST FOR QUOTE', 'PROJECT TITLE:', 'PROJECT LOCATION:', 'RFQ NUMBER:', 'DATE ISSUED:', 'SUBMISSION DEADLINE:']):
+            # Skip ALL unwanted header/project info that duplicates table
+            skip_patterns = [
+                'REQUEST FOR QUOTE', 'PROJECT TITLE:', 'PROJECT LOCATION:', 'RFQ NUMBER:', 
+                'DATE ISSUED:', 'SUBMISSION DEADLINE:', 'PROJECT:', 'LOCATION:', 'DUE DATE'
+            ]
+            if any(skip in line.upper() for skip in skip_patterns):
                 continue
                 
-            # Main section headings (like "### 1. DETAILED SCOPE EXPANSION")
-            if line.startswith('###') or (line.startswith('##') and 'DETAILED SCOPE EXPANSION' in line):
+            # Skip lines that are just markdown symbols or empty bullets
+            if line.strip() in ['•', '-', '**', '###', '##', '---', '*']:
+                continue
+                
+            # Main section headings (### or ##)
+            if line.startswith('###') or line.startswith('##'):
                 section_title = line.lstrip('#').strip()
-                # Remove numbering for cleaner look
+                # Clean up numbering
                 section_title = section_title.replace('1. ', '').replace('2. ', '').replace('3. ', '')
                 section_title = section_title.replace('4. ', '').replace('5. ', '').replace('6. ', '')
                 section_title = section_title.replace('7. ', '').replace('8. ', '')
                 
-                heading = doc.add_heading(section_title, level=2)
-                current_section = section_title
+                if section_title:
+                    heading = doc.add_heading(section_title, level=2)
                 continue
                 
-            # Subsection headings (like "#### 1.1 Site Preparation")  
-            elif line.startswith('####') or (line.startswith('**') and line.endswith('**')):
-                subsection_title = line.lstrip('#').strip().lstrip('**').rstrip('**')
-                # Remove numbering like "1.1" for cleaner look
+            # Subsection headings (#### or numbered like 1.1, 1.2)
+            elif line.startswith('####') or (line.split()[0] if line.split() else '').replace('.', '').replace('1', '').replace('2', '').replace('3', '').replace('4', '').replace('5', '') == '':
                 import re
-                subsection_title = re.sub(r'^\d+\.\d+\s*', '', subsection_title)
+                subsection_title = re.sub(r'^#+\s*', '', line)  # Remove ###
+                subsection_title = re.sub(r'^\d+\.\d+\s*', '', subsection_title)  # Remove 1.1 numbering
                 
-                subheading = doc.add_paragraph()
-                run = subheading.add_run(subsection_title)
-                run.bold = True
-                subheading.space_after = Pt(6)
+                if subsection_title:
+                    subheading = doc.add_paragraph()
+                    run = subheading.add_run(subsection_title)
+                    run.bold = True
+                    run.font.size = Pt(12)
+                    subheading.space_before = Pt(8)
+                    subheading.space_after = Pt(4)
+                    subheading.left_indent = Inches(0.25)
                 continue
                 
-            # Bullet points
+            # Subtitle detection (** on both sides) - these become clean subtitles
+            elif '**' in line and line.count('**') >= 2:
+                # Clean up the subtitle text completely
+                subtitle_text = line.strip()
+                subtitle_text = subtitle_text.lstrip('•-').strip()  # Remove bullets
+                subtitle_text = subtitle_text.replace('**', '').strip()  # Remove ALL asterisks
+                subtitle_text = subtitle_text.rstrip(':').strip()  # Remove trailing colon
+                
+                if subtitle_text:
+                    subheading = doc.add_paragraph()
+                    run = subheading.add_run(subtitle_text)
+                    run.bold = True
+                    run.font.size = Pt(11)
+                    subheading.space_before = Pt(3)  # Minimal space before
+                    subheading.space_after = Pt(2)   # Minimal space after
+                    subheading.left_indent = Inches(0.75)  # Better indent under blue heading
+                continue
+                
+            # Regular bullet points (nested under subtitles)
             elif line.startswith('•') or line.startswith('-'):
                 para = doc.add_paragraph()
                 para.style = 'List Bullet'
                 para.add_run(line.lstrip('•-').strip())
-                para.left_indent = Inches(0.25)
+                para.left_indent = Inches(1.0)  # Indent bullets under subtitles
+                para.space_after = Pt(3)
                 continue
                 
-            # Regular content paragraphs
+            # Regular paragraphs
             else:
-                para = doc.add_paragraph(line)
-                if 'Budget Allowance:' in line:
-                    para.runs[0].bold = True
+                if line and not any(skip in line.upper() for skip in ['---', '**END', 'THANK YOU']):
+                    para = doc.add_paragraph(line)
+                    if 'Budget Allowance:' in line:
+                        para.runs[0].bold = True
         
         doc.add_paragraph()
 
