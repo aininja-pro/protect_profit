@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import QuoteScopeModal from './QuoteScopeModal';
 import QuoteComparisonSection from './QuoteComparisonSection';
+import DivisionQuoteSection from './DivisionQuoteSection';
 
 interface DivisionItem {
   lineId?: string;
@@ -54,12 +55,61 @@ export default function DivisionBreakdownTable({
     setSelectedSubcategory(subcategory);
     setIsQuoteScopeModalOpen(true);
   };
+
+  const getDivisionQuoteStatus = (division: any) => {
+    // TODO: Replace with actual API call to get real quote counts
+    // For now, mock some divisions having different quote statuses
+    if (division.divisionCode === '11') {
+      return { divisionQuotes: 2, awarded: false };
+    }
+    return { divisionQuotes: 0, awarded: false };
+  };
+
+  const getSubcategoryQuoteStatus = (subcategoryName: string) => {
+    // TODO: Replace with actual API call
+    if (subcategoryName.includes('5300 - Interior Doors')) {
+      return { quotes: 3, awarded: false }; // Full 3 quotes
+    }
+    if (subcategoryName.includes('5350 - Interior Door Hardware')) {
+      return { quotes: 1, awarded: false }; // Only 1 quote
+    }
+    return { quotes: 0, awarded: false };
+  };
+
+  const getDivisionBorderColor = (division: any) => {
+    const status = getDivisionQuoteStatus(division);
+    if (status.awarded) return 'border-green-500'; // Awarded = Green
+    if (status.divisionQuotes >= 3) return 'border-blue-500'; // 3+ quotes = Blue
+    if (status.divisionQuotes >= 1) return 'border-yellow-500'; // Some quotes = Yellow  
+    return 'border-primary'; // No quotes = Default
+  };
+
+  const getSubcategoryBorderColor = (subcategoryName: string) => {
+    const status = getSubcategoryQuoteStatus(subcategoryName);
+    if (status.awarded) return 'border-green-400'; // Awarded = Green
+    if (status.quotes >= 3) return 'border-blue-400'; // 3+ quotes = Blue
+    if (status.quotes >= 1) return 'border-yellow-400'; // Some quotes = Yellow
+    return 'border-gray-300'; // No quotes = Gray
+  };
+
+  const getQuoteCountDisplay = (count: number, level: 'division' | 'subcategory') => {
+    if (count === 0) return null;
+    
+    const color = count >= 3 ? 'text-blue-600' : count >= 1 ? 'text-yellow-600' : 'text-gray-500';
+    const target = level === 'division' ? '3' : '3';
+    
+    return (
+      <span className={`text-xs ${color} ml-2`}>
+        {count}/{target} quotes
+      </span>
+    );
+  };
   return (
     <div className="bg-gray-50 rounded-lg p-4 h-[70vh] overflow-y-auto">
       {divisions.map((division: any, divIndex: number) => (
         <div key={divIndex} className="mb-4 last:mb-0">
           {/* Division Header */}
-          <div className="flex justify-between items-center p-3 bg-white rounded-lg border-l-4 border-primary shadow-sm">
+          <div className={`flex justify-between items-center p-3 bg-white rounded-lg border-l-4 ${getDivisionBorderColor(division)} shadow-sm`}>
             <div>
               <span className="font-bold text-gray-900">
                 Division {division.divisionCode} - {division.divisionName}
@@ -67,6 +117,10 @@ export default function DivisionBreakdownTable({
               <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
                 {division.items?.length || 0} items
               </span>
+              {(() => {
+                const status = getDivisionQuoteStatus(division);
+                return getQuoteCountDisplay(status.divisionQuotes, 'division');
+              })()}
             </div>
             <div className="flex items-center gap-3">
               <button 
@@ -80,6 +134,12 @@ export default function DivisionBreakdownTable({
               </span>
             </div>
           </div>
+          
+          {/* Division-Level Quote Management */}
+          <DivisionQuoteSection 
+            division={division}
+            projectId={projectId}
+          />
           
           {/* Division Items - Grouped by Subcategory */}
           {division.items && division.items.length > 0 && (
@@ -121,9 +181,13 @@ export default function DivisionBreakdownTable({
                       return (
                         <div key={subcategoryName} className="space-y-1">
                           {/* Subcategory Header */}
-                          <div className="flex justify-between items-center py-2 px-3 bg-blue-50 rounded border-l-4 border-blue-400">
+                          <div className={`flex justify-between items-center py-2 px-3 bg-blue-50 rounded border-l-4 ${getSubcategoryBorderColor(subcategoryName)}`}>
                             <div className="font-semibold text-gray-900">
                               {subcategoryName}
+                              {(() => {
+                                const status = getSubcategoryQuoteStatus(subcategoryName);
+                                return getQuoteCountDisplay(status.quotes, 'subcategory');
+                              })()}
                             </div>
                             <div className="flex items-center gap-2">
                               <button 

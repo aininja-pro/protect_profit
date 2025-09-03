@@ -20,6 +20,8 @@ export default function QuoteComparisonSection({
   const [isExpanded, setIsExpanded] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedVendor, setSelectedVendor] = useState<string>('');
 
   // Mock quote data - replace with actual API call
   const mockQuotes: Quote[] = [
@@ -53,15 +55,11 @@ export default function QuoteComparisonSection({
       // const response = await fetch(`/api/quotes/subcategory/${subcategoryName}`);
       // setQuotes(response.data);
       
-      // Only show mock data for test projects (not real client projects)
-      const isTestProject = window.location.href.includes('test') || 
-                           division.divisionName?.toLowerCase().includes('test');
-      
-      if (isTestProject) {
+      // For demo, only show mock subcategory quotes for specific subcategories
+      if (subcategoryName.includes('5300 - Interior Doors') || subcategoryName.includes('Interior Doors')) {
         setQuotes(mockQuotes);
       } else {
-        // For real projects, fetch actual quotes from API
-        setQuotes([]); // Empty for now until we have real quotes
+        setQuotes([]); // No quotes for other subcategories yet
       }
     } catch (error) {
       console.error('Error loading quotes:', error);
@@ -75,6 +73,11 @@ export default function QuoteComparisonSection({
       loadQuotes();
     }
   }, [isExpanded]);
+
+  const handleUploadQuote = (vendorName: string) => {
+    setSelectedVendor(vendorName);
+    setShowUploadModal(true);
+  };
 
   const getQuoteStatus = () => {
     if (quotes.length === 0) return { status: 'none', text: 'No quotes', color: 'text-gray-500' };
@@ -156,7 +159,7 @@ export default function QuoteComparisonSection({
                         </span>
                       </td>
                       <td className="text-center py-2">
-                        {quote.status === 'received' && (
+                        {quote.status === 'received' ? (
                           <div className="flex gap-1 justify-center">
                             <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
                               Award
@@ -165,12 +168,35 @@ export default function QuoteComparisonSection({
                               Clarify
                             </button>
                           </div>
+                        ) : (
+                          <button 
+                            onClick={() => handleUploadQuote(quote.vendor_name)}
+                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                          >
+                            📎 Upload
+                          </button>
                         )}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              
+              {/* Quote Management Actions */}
+              <div className="mt-3 flex gap-2">
+                <button 
+                  onClick={() => setShowUploadModal(true)}
+                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-1"
+                >
+                  📎 Upload Quote
+                </button>
+                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
+                  ➕ Add Vendor
+                </button>
+                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
+                  📧 Send Reminder
+                </button>
+              </div>
               
               {/* AI Recommendation */}
               <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
@@ -184,6 +210,64 @@ export default function QuoteComparisonSection({
               </div>
             </div>
           )}
+        </div>
+      )}
+      
+      {/* Quote Upload Modal */}
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Upload Quote</h3>
+              <button 
+                onClick={() => setShowUploadModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block font-medium mb-2">Vendor:</label>
+              <input 
+                type="text" 
+                value={selectedVendor}
+                onChange={(e) => setSelectedVendor(e.target.value)}
+                placeholder="Vendor name"
+                className="w-full border rounded p-2"
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block font-medium mb-2">Quote File:</label>
+              <input 
+                type="file" 
+                accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
+                className="w-full border rounded p-2"
+              />
+            </div>
+            
+            <div className="mb-6">
+              <label className="block font-medium mb-2">Subcategory:</label>
+              <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                {subcategoryName}
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+              >
+                Upload & Parse
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

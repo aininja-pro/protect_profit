@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:8001/api';
 
 interface Message {
   id: string;
@@ -7,32 +9,64 @@ interface Message {
   timestamp: Date;
 }
 
-interface AIAssistantProps {
-  context: {
-    type: 'project' | 'division' | 'subcategory';
-    projectId: string;
-    divisionId?: string;
-    subcategoryName?: string;
-  };
+interface AIContext {
+  type: 'project' | 'division' | 'subcategory';
+  projectId: string;
+  divisionId?: string;
+  divisionName?: string;
+  subcategoryName?: string;
+  quotes?: any[];
+  budget?: number;
+  description?: string;
 }
 
-export default function AIAssistant({ context }: AIAssistantProps) {
+interface AIAssistantProps {
+  context: AIContext;
+  onContextUpdate?: (newContext: AIContext) => void;
+}
+
+export default function AIAssistant({ context, onContextUpdate }: AIAssistantProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'ai',
-      content: `Hi! I'm your procurement assistant. I have access to all your ${context.divisionId ? 'division' : 'project'} data. Ask me about quotes, vendors, timelines, or any decisions you need to make.`,
-      timestamp: new Date()
-    }
-  ]);
+  const [currentContext, setCurrentContext] = useState<AIContext>(context);
+  const [availableContexts, setAvailableContexts] = useState<AIContext[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Update greeting when context changes
+  useEffect(() => {
+    const greeting = getContextualGreeting(currentContext);
+    setMessages([{
+      id: Date.now().toString(),
+      role: 'ai',
+      content: greeting,
+      timestamp: new Date()
+    }]);
+  }, [currentContext]);
+
+  const getContextualGreeting = (ctx: AIContext) => {
+    if (ctx.type === 'division' && ctx.quotes && ctx.quotes.length > 0) {
+      return `I can see you're analyzing Division ${ctx.divisionId} quotes. I have access to ${ctx.quotes.length} division quotes totaling ${ctx.budget ? '$' + ctx.budget.toLocaleString() : 'TBD'}. Ask me about award strategies, vendor comparisons, or timeline analysis.`;
+    } else if (ctx.type === 'subcategory' && ctx.quotes && ctx.quotes.length > 0) {
+      return `I'm focused on ${ctx.subcategoryName} quotes. I can see ${ctx.quotes.length} quotes received. Ask me about vendor recommendations, pricing analysis, or scope clarifications.`;
+    } else if (ctx.type === 'division') {
+      return `I'm focused on Division ${ctx.divisionId} - ${ctx.divisionName}. I can help with RFQ creation, vendor selection, or procurement strategy for this division.`;
+    } else {
+      return `Hi! I'm your procurement assistant for this project. I can help with RFQ creation, quote analysis, vendor decisions, and award strategies. What would you like to analyze?`;
+    }
+  };
+
   const getContextDisplay = () => {
-    if (context.subcategoryName) return context.subcategoryName;
-    if (context.divisionId) return `Division ${context.divisionId}`;
+    if (currentContext.subcategoryName) return currentContext.subcategoryName;
+    if (currentContext.divisionId) return `Division ${currentContext.divisionId}`;
     return 'Project Overview';
+  };
+
+  const handleContextSwitch = (newContext: AIContext) => {
+    setCurrentContext(newContext);
+    if (onContextUpdate) {
+      onContextUpdate(newContext);
+    }
   };
 
   const sendMessage = async () => {
@@ -50,20 +84,38 @@ export default function AIAssistant({ context }: AIAssistantProps) {
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual API call
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'ai',
-          content: `I understand you're asking about "${inputMessage}". Based on the current ${context.type} context, I can help analyze that. [This will connect to the actual AI API]`,
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, aiResponse]);
-        setIsLoading(false);
-      }, 1000);
+      // Real OpenAI API call with context
+      const response = await fetch(`${API_BASE}/ai/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: inputMessage,
+          context: currentContext
+        })
+      });
+      
+      const data = await response.json();
+      
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: data.ai_response || `I understand your question about "${inputMessage}". Based on my ${currentContext.type} context, I can help with that analysis.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiResponse]);
+      setIsLoading(false);
     } catch (error) {
       setIsLoading(false);
       console.error('AI chat error:', error);
+      
+      // Fallback response
+      const fallbackResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'ai',
+        content: `I understand your question about "${inputMessage}". AI chat temporarily unavailable - please try again.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, fallbackResponse]);
     }
   };
 
@@ -79,17 +131,45 @@ export default function AIAssistant({ context }: AIAssistantProps) {
       {isExpanded ? (
         <div className="bg-white rounded-lg shadow-2xl border w-96 h-[500px] flex flex-col">
           {/* Header */}
-          <div className="bg-primary text-white p-3 rounded-t-lg flex justify-between items-center">
-            <div>
-              <div className="font-semibold">🤖 AI Assistant</div>
-              <div className="text-xs opacity-90">{getContextDisplay()}</div>
+          <div className="bg-primary text-white p-3 rounded-t-lg">
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="font-semibold">🤖 AI Assistant</div>
+                <div className="text-xs opacity-90 mt-1">
+                  Context: {getContextDisplay()}
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsExpanded(false)}
+                className="text-white hover:bg-primary-dark rounded p-1 ml-2"
+              >
+                ✕
+              </button>
             </div>
-            <button 
-              onClick={() => setIsExpanded(false)}
-              className="text-white hover:bg-primary-dark rounded p-1"
-            >
-              ✕
-            </button>
+            
+            {/* Context Switcher */}
+            <div className="mt-2 pt-2 border-t border-primary-dark">
+              <select 
+                value={`${currentContext.type}-${currentContext.divisionId || 'project'}-${currentContext.subcategoryName || ''}`}
+                onChange={(e) => {
+                  const [type, divisionId, subcategoryName] = e.target.value.split('-');
+                  const newContext: AIContext = {
+                    type: type as any,
+                    projectId: currentContext.projectId,
+                    divisionId: divisionId !== 'project' ? divisionId : undefined,
+                    subcategoryName: subcategoryName || undefined
+                  };
+                  handleContextSwitch(newContext);
+                }}
+                className="w-full text-xs bg-primary-dark text-white border border-primary-light rounded px-2 py-1 cursor-pointer appearance-none"
+                style={{ backgroundImage: "url(\"data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 16 16'%3e%3cpath d='m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z'/%3e%3c/svg%3e\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 4px center", backgroundSize: "12px" }}
+              >
+                <option value="project-project-">Project Overview</option>
+                <option value="division-11-">Division 11 - Finish Carpentry</option>
+                <option value="subcategory-11-5300 - Interior Doors">5300 - Interior Doors</option>
+                <option value="subcategory-11-5350 - Interior Door Hardware">5350 - Interior Door Hardware</option>
+              </select>
+            </div>
           </div>
 
           {/* Messages */}
