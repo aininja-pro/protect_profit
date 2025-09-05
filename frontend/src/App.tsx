@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import ProjectPage from './pages/ProjectPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import DivisionsPage from './pages/DivisionsPage';
+import SimpleQuotesPage from './pages/SimpleQuotesPage';
 import DivisionQuoteUploadPage from './pages/DivisionQuoteUploadPage';
 import QuoteMappingPage from './pages/QuoteMappingPage';
 import QuoteComparisonPage from './pages/QuoteComparisonPage';
@@ -26,6 +27,9 @@ function App() {
               <Route path="/projects" element={<Dashboard />} />
               <Route path="/projects/create" element={<CreateProjectPage />} />
               <Route path="/projects/:projectId" element={<ProjectPage />} />
+              
+              {/* Simple Quote Management */}
+              <Route path="/projects/:projectId/quotes" element={<SimpleQuotesPage />} />
               
               {/* Division Management */}
               <Route path="/projects/:projectId/divisions" element={<DivisionsPage />} />

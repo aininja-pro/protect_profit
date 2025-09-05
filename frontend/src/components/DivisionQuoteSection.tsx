@@ -45,32 +45,48 @@ export default function DivisionQuoteSection({
 
   // Mock division-level quotes - replace with actual API call
   const mockDivisionQuotes: DivisionQuote[] = [
-    {
-      vendor_name: "Elite Carpentry",
-      total_price: 32000,
-      status: 'received',
-      coverage: 'full_division',
-      timeline: "6 weeks",
-      notes: "Complete finish carpentry package",
-      variance_percent: -5 // 5% under budget
-    },
-    {
-      vendor_name: "Premier Contractors", 
-      total_price: 34500,
-      status: 'received',
-      coverage: 'full_division',
-      timeline: "4 weeks",
-      notes: "Fast timeline, higher cost",
-      variance_percent: 3 // 3% over budget
-    },
-    {
-      vendor_name: "Master Millwork",
-      total_price: 0,
-      status: 'pending',
-      coverage: 'full_division',
-      timeline: "TBD",
-      notes: "Quote pending"
-    }
+    // Division 04 - Concrete/Masonry quotes
+    ...(division.divisionCode === '04' ? [
+      {
+        vendor_name: "East Manatee 3-21",
+        total_price: 85300,
+        status: 'received' as const,
+        coverage: 'full_division' as const,
+        timeline: "4 weeks",
+        notes: "AI Parsed from uploaded file",
+        variance_percent: 0 // On budget
+      },
+      {
+        vendor_name: "East Manatee 8-26", 
+        total_price: 93800,
+        status: 'received' as const,
+        coverage: 'full_division' as const,
+        timeline: "4 weeks", 
+        notes: "AI Parsed from uploaded file",
+        variance_percent: 10 // 10% over budget
+      }
+    ] : []),
+    // Other divisions - original mock data
+    ...(division.divisionCode !== '04' ? [
+      {
+        vendor_name: "Elite Carpentry",
+        total_price: 32000,
+        status: 'received' as const,
+        coverage: 'full_division' as const,
+        timeline: "6 weeks",
+        notes: "Complete finish carpentry package",
+        variance_percent: -5
+      },
+      {
+        vendor_name: "Premier Contractors", 
+        total_price: 34500,
+        status: 'received' as const,
+        coverage: 'full_division' as const,
+        timeline: "4 weeks",
+        notes: "Fast timeline, higher cost",
+        variance_percent: 3
+      }
+    ] : [])
   ];
 
   const loadDivisionQuotes = async () => {

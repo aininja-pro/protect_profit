@@ -67,8 +67,8 @@ export default function ProjectPage() {
   };
 
   const handleCreateQuotes = () => {
-    // Navigate to divisions for quote management
-    navigate(`/projects/${projectId}/divisions`);
+    // Navigate to simple quotes overview page
+    navigate(`/projects/${projectId}/quotes`);
   };
 
   if (!projectId) {

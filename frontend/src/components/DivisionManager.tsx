@@ -76,12 +76,20 @@ export default function DivisionManager({
     switch (status) {
       case 'no_quotes':
         return (
-          <button
-            onClick={() => handleQuoteUpload(divisionCode)}
-            className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary/90"
-          >
-            Upload Quotes
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleQuoteUpload(divisionCode)}
+              className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary/90"
+            >
+              Upload Quotes
+            </button>
+            <button
+              onClick={() => handleCompareQuotes(divisionCode)}
+              className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+            >
+              Analyze
+            </button>
+          </div>
         );
       case 'quotes_uploaded':
         return (
