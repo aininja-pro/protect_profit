@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
-import DivisionBreakdownTable from '../components/DivisionBreakdownTable';
 import AIAssistant from '../components/AIAssistant';
 import { quotesApi, Division } from '../services/quotesApi';
 
@@ -195,14 +194,9 @@ export default function ProjectPage() {
             </div>
 
             {/* Detailed Division Breakdown Table */}
-            <DivisionBreakdownTable 
-              divisions={divisions}
-              projectSubtotal={projectTotals?.projectSubtotal || 874485.71}
-              overheadAndProfit={projectTotals?.overheadAndProfit || 157407.43}
-              jobTotal={projectTotals?.jobTotal || 1031893.14}
-              grandTotalFromItems={projectTotals?.projectSubtotal || 874485.71}
-              projectId={projectId || ''}
-            />
+            <div className="text-center py-8 text-gray-500">
+              Use "Manage Quotes" button above to access quote management
+            </div>
           </div>
 
         </div>
