@@ -413,14 +413,124 @@ export default function QuoteComparisonView({
         </div>
       </div>
 
-      {/* Live Analysis Panel */}
-      <LiveAnalysisPanel
-        divisionId={divisionId}
-        quotes={vendorQuotes}
-        budgetLines={budgetLines}
-        analysisEngine={analysisEngine}
-        onPreferencesChange={(prefs) => console.log('Preferences updated:', prefs)}
-      />
+      {/* Enhanced Analysis Dashboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Analysis Panel */}
+        <div className="lg:col-span-2">
+          <LiveAnalysisPanel
+            divisionId={divisionId}
+            quotes={vendorQuotes}
+            budgetLines={budgetLines}
+            analysisEngine={analysisEngine}
+            onPreferencesChange={(prefs) => console.log('Preferences updated:', prefs)}
+          />
+        </div>
+        
+        {/* Quick Decision Panel */}
+        <div className="space-y-4">
+          {/* Vendor Summary Cards */}
+          <div className="bg-white rounded-lg border p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Vendor Summary</h3>
+            <div className="space-y-3">
+              {Object.entries(totals)
+                .sort(([,a], [,b]) => a - b)
+                .slice(0, 3)
+                .map(([vendorId, total], index) => {
+                  const vendor = vendorQuotes.find(q => q.vendor_id === vendorId);
+                  const budgetTotal = budgetLines.reduce((sum, line) => sum + line.totalCost, 0);
+                  const variance = ((total - budgetTotal) / budgetTotal) * 100;
+                  
+                  return (
+                    <div key={vendorId} className={`p-3 rounded-lg border-l-4 ${
+                      index === 0 ? 'border-green-500 bg-green-50' : 
+                      index === 1 ? 'border-blue-500 bg-blue-50' : 
+                      'border-yellow-500 bg-yellow-50'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-sm">{vendor?.vendor_name}</div>
+                          <div className="text-xs text-gray-600">
+                            {index === 0 ? '🏆 Best Price' : index === 1 ? '🥈 Second' : '🥉 Third'}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold">${total.toLocaleString()}</div>
+                          <div className={`text-xs ${variance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {variance > 0 ? '+' : ''}{variance.toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              }
+            </div>
+          </div>
+          
+          {/* Quick Actions */}
+          <div className="bg-white rounded-lg border p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Quick Actions</h3>
+            <div className="space-y-2">
+              <button className="w-full px-3 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700">
+                🏆 Award Lowest Bidder
+              </button>
+              <button className="w-full px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                📧 Request Clarifications
+              </button>
+              <button className="w-full px-3 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700">
+                🤖 AI Recommendation
+              </button>
+              <button className="w-full px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50">
+                📊 Export Analysis
+              </button>
+            </div>
+          </div>
+          
+          {/* Risk Indicators */}
+          <div className="bg-white rounded-lg border p-4">
+            <h3 className="font-semibold text-gray-900 mb-3">Risk Assessment</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Price Variance</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className={`h-full ${
+                      Math.abs(Object.values(totals)[0] / Object.values(totals)[Object.values(totals).length - 1] - 1) > 0.2 
+                        ? 'bg-red-500' : 'bg-green-500'
+                    }`} style={{
+                      width: `${Math.min(100, Math.abs(Object.values(totals)[0] / Object.values(totals)[Object.values(totals).length - 1] - 1) * 100)}%`
+                    }}></div>
+                  </div>
+                  <span className="text-xs text-gray-600">
+                    {Math.abs(Object.values(totals)[0] / Object.values(totals)[Object.values(totals).length - 1] - 1) > 0.2 ? 'High' : 'Low'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Scope Coverage</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-12 h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500" style={{
+                      width: `${(comparisonData.filter(row => row.missing_vendors.length === 0).length / comparisonData.length) * 100}%`
+                    }}></div>
+                  </div>
+                  <span className="text-xs text-gray-600">
+                    {((comparisonData.filter(row => row.missing_vendors.length === 0).length / comparisonData.length) * 100).toFixed(0)}%
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Extra Items</span>
+                <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full">
+                  {vendorQuotes.reduce((sum, quote) => 
+                    sum + quote.line_items.filter(item => item.coverage === 'extra').length, 0
+                  )} items
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Extra Items Summary */}
       {vendorQuotes.some(quote => quote.line_items.some(item => item.coverage === 'extra')) && (

@@ -11,6 +11,8 @@ interface Quote {
   status: 'pending' | 'received' | 'awarded';
   timeline?: string;
   notes?: string;
+  scope?: 'full' | 'partial';
+  scope_notes?: string;
 }
 
 export default function QuoteComparisonSection({ 
@@ -30,21 +32,25 @@ export default function QuoteComparisonSection({
       total_price: 14500,
       status: 'received',
       timeline: "4 weeks",
-      notes: "Standard millwork"
+      notes: "Standard millwork",
+      scope: 'full'
     },
     {
       vendor_name: "Custom Door Co",
       total_price: 15800,
       status: 'received', 
       timeline: "3 weeks",
-      notes: "Specializes in barn doors"
+      notes: "Specializes in barn doors",
+      scope: 'partial',
+      scope_notes: "Includes doors only, excludes hardware installation"
     },
     {
       vendor_name: "Premier Trim", 
       total_price: 13900,
       status: 'pending',
       timeline: "6 weeks",
-      notes: "Lowest bid"
+      notes: "Lowest bid",
+      scope: 'full'
     }
   ];
 
@@ -79,139 +85,113 @@ export default function QuoteComparisonSection({
     setShowUploadModal(true);
   };
 
-  const getQuoteStatus = () => {
-    if (quotes.length === 0) return { status: 'none', text: 'No quotes', color: 'text-gray-500' };
-    
-    const receivedQuotes = quotes.filter(q => q.status === 'received').length;
-    const awardedQuotes = quotes.filter(q => q.status === 'awarded').length;
-    
-    if (awardedQuotes > 0) return { status: 'awarded', text: 'Awarded', color: 'text-green-600' };
-    if (receivedQuotes > 0) return { status: 'received', text: `${receivedQuotes} quotes`, color: 'text-blue-600' };
-    return { status: 'pending', text: `${quotes.length} pending`, color: 'text-yellow-600' };
-  };
-
-  const quoteStatus = getQuoteStatus();
 
   return (
     <div className="ml-6 mt-1">
-      {/* Quote Status Indicator */}
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full p-2 bg-white border rounded hover:bg-gray-50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">📊 Quote Analysis</span>
-          <span className={`text-xs ${quoteStatus.color}`}>
-            {quoteStatus.text}
-          </span>
+      {/* Subcategory-Level Quotes Header */}
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-purple-900">📋 Subcategory Quotes</span>
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              quotes.length === 0 ? 'bg-gray-100 text-gray-600' :
+              quotes.filter(q => q.status === 'received').length > 0 ? 'bg-green-100 text-green-700' :
+              'bg-yellow-100 text-yellow-700'
+            }`}>
+              {quotes.length === 0 ? 'No quotes' : `${quotes.length} quotes`}
+            </span>
+          </div>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-sm text-purple-600 hover:text-purple-800"
+          >
+            {isExpanded ? '▲ Hide' : '▼ Show'}
+          </button>
         </div>
-        <span className="text-sm text-gray-500">
-          {isExpanded ? '▲ Hide' : '▼ Compare'}
-        </span>
-      </button>
-
-      {/* Expandable Comparison Table */}
-      {isExpanded && (
-        <div className="mt-2 bg-white border rounded p-3">
-          {loading ? (
-            <div className="text-center py-4">
-              <div className="inline-flex items-center gap-2">
-                <div className="animate-spin w-4 h-4 border-2 border-gray-300 border-t-primary rounded-full"></div>
+        
+        {/* Simple Quote List (consistent with division-level) */}
+        {isExpanded && (
+          <div className="space-y-2">
+            {loading ? (
+              <div className="text-center py-2 text-sm text-gray-500">
                 Loading quotes...
               </div>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2">Vendor</th>
-                    <th className="text-right py-2">Price</th>
-                    <th className="text-center py-2">Timeline</th>
-                    <th className="text-center py-2">Status</th>
-                    <th className="text-center py-2">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {quotes.map((quote, idx) => (
-                    <tr key={idx} className="border-b last:border-b-0">
-                      <td className="py-2">
-                        <div>
-                          <div className="font-medium">{quote.vendor_name}</div>
-                          {quote.notes && (
-                            <div className="text-xs text-gray-500">{quote.notes}</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="text-right py-2 font-semibold">
-                        ${quote.total_price.toLocaleString()}
-                      </td>
-                      <td className="text-center py-2">
-                        {quote.timeline || 'TBD'}
-                      </td>
-                      <td className="text-center py-2">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          quote.status === 'awarded' ? 'bg-green-100 text-green-800' :
-                          quote.status === 'received' ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {quote.status}
-                        </span>
-                      </td>
-                      <td className="text-center py-2">
-                        {quote.status === 'received' ? (
-                          <div className="flex gap-1 justify-center">
-                            <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                              Award
-                            </button>
-                            <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
-                              Clarify
-                            </button>
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => handleUploadQuote(quote.vendor_name)}
-                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                          >
-                            📎 Upload
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              {/* Quote Management Actions */}
-              <div className="mt-3 flex gap-2">
-                <button 
-                  onClick={() => setShowUploadModal(true)}
-                  className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center gap-1"
-                >
-                  📎 Upload Quote
-                </button>
-                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                  ➕ Add Vendor
-                </button>
-                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                  📧 Send Reminder
-                </button>
+            ) : quotes.length === 0 ? (
+              <div className="text-center py-2 text-sm text-gray-500">
+                No quotes uploaded yet
               </div>
-              
-              {/* AI Recommendation */}
-              <div className="mt-3 p-3 bg-blue-50 rounded border border-blue-200">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-600">🤖</span>
-                  <div className="text-sm text-blue-800">
-                    <div className="font-medium">AI Recommendation:</div>
-                    <div>ABC Millwork offers the best value at $14,500 (4% under budget). They have excellent past performance and realistic timeline. Custom Door Co is worth the premium if barn door quality is critical.</div>
+            ) : (
+              quotes.map((quote, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-white rounded border">
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{quote.vendor_name}</div>
+                    <div className="text-xs text-gray-500">
+                      {quote.timeline && `Timeline: ${quote.timeline}`}
+                      {quote.notes && ` • ${quote.notes}`}
+                    </div>
+                    {quote.scope === 'partial' && quote.scope_notes && (
+                      <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                        📝 Partial scope: {quote.scope_notes}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-bold text-lg text-gray-900">
+                        ${quote.total_price.toLocaleString()}
+                      </div>
+                      <div className={`text-xs ${
+                        quote.status === 'received' ? 'text-green-600' : 
+                        quote.status === 'awarded' ? 'text-green-700' : 'text-yellow-600'
+                      }`}>
+                        {quote.status}
+                      </div>
+                    </div>
+                    <div className="flex gap-1">
+                      {quote.status === 'received' ? (
+                        <>
+                          <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
+                            Award
+                          </button>
+                          <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                            Clarify
+                          </button>
+                          <button className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
+                            Delete
+                          </button>
+                        </>
+                      ) : (
+                        <button 
+                          onClick={() => handleUploadQuote(quote.vendor_name)}
+                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                        >
+                          Upload
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ))
+            )}
+            
+            {/* Upload Actions */}
+            <div className="flex gap-2 pt-2 border-t">
+              <button 
+                onClick={() => setShowUploadModal(true)}
+                className="px-3 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+              >
+                📎 Upload Subcategory Quote
+              </button>
+              <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
+                ➕ Add Vendor
+              </button>
+              <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
+                📧 Send Reminders
+              </button>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
       
       {/* Quote Upload Modal */}
       {showUploadModal && (
@@ -247,10 +227,46 @@ export default function QuoteComparisonSection({
               />
             </div>
             
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="block font-medium mb-2">Subcategory:</label>
               <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
                 {subcategoryName}
+              </div>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block font-medium mb-2">Quote Scope:</label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input 
+                    type="radio" 
+                    name="quoteScope" 
+                    value="full" 
+                    className="mr-2"
+                    defaultChecked
+                  />
+                  <span className="text-sm">Full subcategory (all items)</span>
+                </label>
+                <label className="flex items-center">
+                  <input 
+                    type="radio" 
+                    name="quoteScope" 
+                    value="partial" 
+                    className="mr-2"
+                  />
+                  <span className="text-sm">Partial scope (specify below)</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block font-medium mb-2">Scope Notes:</label>
+              <textarea
+                placeholder="Specify what items are included/excluded in this quote..."
+                className="w-full border rounded p-2 text-sm h-20 resize-none"
+              />
+              <div className="text-xs text-gray-500 mt-1">
+                Example: "Includes concrete block walls only, excludes tie beams"
               </div>
             </div>
             
