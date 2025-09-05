@@ -24,6 +24,11 @@ export default function QuoteComparisonSection({
   const [loading, setLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  
+  // Enhanced scope selection state
+  const [quoteScope, setQuoteScope] = useState<'full' | 'partial'>('full');
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [scopeNotes, setScopeNotes] = useState<string>('');
 
   // Mock quote data - replace with actual API call
   const mockQuotes: Quote[] = [
@@ -83,7 +88,74 @@ export default function QuoteComparisonSection({
   const handleUploadQuote = (vendorName: string) => {
     setSelectedVendor(vendorName);
     setShowUploadModal(true);
+    // Reset scope selections when opening modal
+    setQuoteScope('full');
+    setSelectedItems(new Set());
+    setScopeNotes('');
   };
+
+  const handleCloseModal = () => {
+    setShowUploadModal(false);
+    // Reset form state
+    setSelectedVendor('');
+    setQuoteScope('full');
+    setSelectedItems(new Set());
+    setScopeNotes('');
+  };
+
+  // Get budget line items for this subcategory
+  const getSubcategoryItems = () => {
+    if (!division?.items) return [];
+    
+    return division.items.filter((item: any) => {
+      const itemSubcat = item.subcategory_name || item.subcategoryName;
+      const itemSubcatCode = item.subcategory_code || item.subcategoryCode;
+      
+      // Match by subcategory name or extract from description
+      if (itemSubcat && subcategoryName.includes(itemSubcat)) return true;
+      if (itemSubcatCode && subcategoryName.includes(itemSubcatCode)) return true;
+      
+      // Extract subcategory from description for items like "2250 - Concrete Flatwork: Stem Wall"
+      if (item.description && item.description.includes(':')) {
+        const descPrefix = item.description.split(':')[0].trim();
+        if (subcategoryName.includes(descPrefix)) return true;
+      }
+      
+      return false;
+    });
+  };
+
+  const subcategoryItems = getSubcategoryItems();
+
+  // Handle scope selection changes
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allItemIds = subcategoryItems.map((item: any) => item.lineId || item.description);
+      setSelectedItems(new Set(allItemIds));
+    } else {
+      setSelectedItems(new Set());
+    }
+  };
+
+  const handleItemSelect = (itemId: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (checked) {
+      newSelected.add(itemId);
+    } else {
+      newSelected.delete(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  // Calculate total of selected items
+  const getSelectedTotal = () => {
+    return subcategoryItems
+      .filter((item: any) => selectedItems.has(item.lineId || item.description))
+      .reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0);
+  };
+
+  const selectedTotal = getSelectedTotal();
+  const allItemsSelected = subcategoryItems.length > 0 && selectedItems.size === subcategoryItems.length;
 
 
   return (
@@ -200,7 +272,7 @@ export default function QuoteComparisonSection({
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Upload Quote</h3>
               <button 
-                onClick={() => setShowUploadModal(false)}
+                onClick={handleCloseModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 ✕
@@ -243,9 +315,15 @@ export default function QuoteComparisonSection({
                     name="quoteScope" 
                     value="full" 
                     className="mr-2"
-                    defaultChecked
+                    checked={quoteScope === 'full'}
+                    onChange={(e) => setQuoteScope('full')}
                   />
                   <span className="text-sm">Full subcategory (all items)</span>
+                  {subcategoryItems.length > 0 && (
+                    <span className="text-xs text-gray-500 ml-2">
+                      (${subcategoryItems.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0).toLocaleString()})
+                    </span>
+                  )}
                 </label>
                 <label className="flex items-center">
                   <input 
@@ -253,32 +331,114 @@ export default function QuoteComparisonSection({
                     name="quoteScope" 
                     value="partial" 
                     className="mr-2"
+                    checked={quoteScope === 'partial'}
+                    onChange={(e) => setQuoteScope('partial')}
                   />
-                  <span className="text-sm">Partial scope (specify below)</span>
+                  <span className="text-sm">Partial scope (select items below)</span>
+                  {quoteScope === 'partial' && selectedTotal > 0 && (
+                    <span className="text-xs text-green-600 ml-2 font-medium">
+                      (${selectedTotal.toLocaleString()} selected)
+                    </span>
+                  )}
                 </label>
               </div>
             </div>
             
+            {/* Enhanced Item Selection */}
+            {quoteScope === 'partial' && subcategoryItems.length > 0 && (
+              <div className="mb-4">
+                <label className="block font-medium mb-2">Select Items Included in Quote:</label>
+                <div className="border rounded p-3 bg-gray-50 max-h-48 overflow-y-auto">
+                  {/* Select All */}
+                  <label className="flex items-center mb-2 pb-2 border-b">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={allItemsSelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                    />
+                    <span className="font-medium text-sm">Select All</span>
+                    {subcategoryItems.length > 0 && (
+                      <span className="text-xs text-gray-500 ml-auto">
+                        {selectedItems.size}/{subcategoryItems.length} items
+                      </span>
+                    )}
+                  </label>
+                  
+                  {/* Individual Items */}
+                  <div className="space-y-1">
+                    {subcategoryItems.map((item: any, index: number) => {
+                      const itemId = item.lineId || item.description;
+                      const itemCost = item.total_cost || item.totalCost || 0;
+                      const itemDesc = item.description || item.tradeDescription || `Item ${index + 1}`;
+                      
+                      return (
+                        <label key={itemId} className="flex items-center justify-between py-1">
+                          <div className="flex items-center flex-1">
+                            <input
+                              type="checkbox"
+                              className="mr-2"
+                              checked={selectedItems.has(itemId)}
+                              onChange={(e) => handleItemSelect(itemId, e.target.checked)}
+                            />
+                            <span className="text-sm text-gray-800 flex-1">
+                              {itemDesc.length > 40 ? `${itemDesc.substring(0, 40)}...` : itemDesc}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium text-gray-600 ml-2">
+                            ${itemCost.toLocaleString()}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {/* Selected Total */}
+                {selectedTotal > 0 && (
+                  <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-green-800">Selected Items Total:</span>
+                      <span className="font-bold text-green-800">${selectedTotal.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="mb-6">
-              <label className="block font-medium mb-2">Scope Notes:</label>
+              <label className="block font-medium mb-2">Additional Notes:</label>
               <textarea
-                placeholder="Specify what items are included/excluded in this quote..."
-                className="w-full border rounded p-2 text-sm h-20 resize-none"
+                value={scopeNotes}
+                onChange={(e) => setScopeNotes(e.target.value)}
+                placeholder="Any special conditions, exclusions, or anomalies..."
+                className="w-full border rounded p-2 text-sm h-16 resize-none"
               />
               <div className="text-xs text-gray-500 mt-1">
-                Example: "Includes concrete block walls only, excludes tie beams"
+                Example: "Material costs only, labor to be provided by GC"
               </div>
             </div>
             
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowUploadModal(false)}
+                onClick={handleCloseModal}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
               >
                 Cancel
               </button>
               <button
                 className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
+                onClick={() => {
+                  // TODO: Implement upload logic with scope data
+                  console.log('Upload quote:', {
+                    vendor: selectedVendor,
+                    scope: quoteScope,
+                    selectedItems: Array.from(selectedItems),
+                    notes: scopeNotes,
+                    total: quoteScope === 'partial' ? selectedTotal : subcategoryItems.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0)
+                  });
+                  handleCloseModal();
+                }}
               >
                 Upload & Parse
               </button>
