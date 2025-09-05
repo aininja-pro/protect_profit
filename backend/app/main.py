@@ -20,8 +20,10 @@ app = FastAPI(
 origins = [
     "http://localhost:3000",  # React development server
     "http://localhost:3001",  # Current React port
+    "http://localhost:3002",  # Additional React port
     "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3001", 
+    "http://127.0.0.1:3002",
     os.getenv("FRONTEND_URL", "http://localhost:3000")
 ]
 

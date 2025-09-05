@@ -26,6 +26,9 @@ export default function DivisionQuoteSection({
   const [loading, setLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<any>(null);
 
   // Mock division-level quotes - replace with actual API call
   const mockDivisionQuotes: DivisionQuote[] = [
@@ -60,18 +63,37 @@ export default function DivisionQuoteSection({
   const loadDivisionQuotes = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/quotes/division/${division.divisionCode}`);
+      // Load real quotes from backend
+      const divisionId = `${division.divisionCode}-${projectId}`;
+      const response = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/compare`);
       
-      // For demo, only show mock data for specific divisions
-      if (division.divisionCode === '11') {
-        // Only show division quotes for Division 11 (Finish Carpentry)
-        setDivisionQuotes(mockDivisionQuotes);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Convert backend quote data to component format
+        const quotes: DivisionQuote[] = data.vendor_quotes.map((vendorQuote: any) => {
+          const totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+          const variancePercent = division.divisionTotal > 0 ? 
+            Math.round(((totalPrice - division.divisionTotal) / division.divisionTotal) * 100) : 0;
+            
+          return {
+            vendor_name: vendorQuote.vendor_name,
+            total_price: totalPrice,
+            status: vendorQuote.status === 'parsed' ? 'received' : vendorQuote.status,
+            coverage: 'full_division',
+            timeline: '4 weeks',
+            notes: 'AI Parsed from uploaded file',
+            variance_percent: variancePercent
+          };
+        });
+        
+        setDivisionQuotes(quotes);
       } else {
         setDivisionQuotes([]);
       }
     } catch (error) {
       console.error('Error loading division quotes:', error);
+      setDivisionQuotes([]);
     } finally {
       setLoading(false);
     }
@@ -85,7 +107,86 @@ export default function DivisionQuoteSection({
 
   const handleUploadQuote = (vendorName?: string) => {
     setSelectedVendor(vendorName || '');
+    setSelectedFile(null);
+    setUploadResult(null);
     setShowUploadModal(true);
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !selectedVendor.trim()) {
+      alert('Please select a file and enter vendor name');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      console.log("🚀 REAL UPLOAD: Starting upload for", selectedVendor);
+      
+      // Step 1: Upload the file (REAL upload, not fake)
+      const formData = new FormData();
+      formData.append('project_id', projectId);
+      formData.append('vendor_name', selectedVendor);
+      formData.append('file', selectedFile);
+
+      const divisionId = `${division.divisionCode}-${projectId}`;
+      
+      const uploadResponse = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      console.log("🚀 REAL UPLOAD: Upload response:", uploadResult);
+      
+      // Step 2: Parse the uploaded quote (REAL parsing with actual file)
+      const parseResponse = await fetch(`http://localhost:8001/api/quotes/${uploadResult.quote_id}/parse`, {
+        method: 'POST'
+      });
+      
+      if (!parseResponse.ok) {
+        throw new Error(`Parse failed: ${parseResponse.statusText}`);
+      }
+      
+      const result = await parseResponse.json();
+      console.log("🚀 REAL UPLOAD: Parse response:", result);
+      setUploadResult(result);
+      
+      if (result.confidence_score >= 0.7) {
+        alert(`✅ Division quote parsed successfully!\n\nVendor: ${result.vendor_name}\nTotal: $${result.total_amount?.toLocaleString()}\nConfidence: ${Math.round(result.confidence_score * 100)}%\n\nQuote added to division comparison.`);
+        
+        // Reload quotes from database to show the newly uploaded quote
+        await loadDivisionQuotes();
+        setShowUploadModal(false);
+      } else {
+        alert(`⚠️ Quote parsed with low confidence (${Math.round(result.confidence_score * 100)}%)\n\nPlease review the parsed data and correct any issues.`);
+      }
+      
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (file.type === 'application/pdf') {
+        // For PDF files, we'll need backend processing - for now use filename
+        resolve(`PDF file: ${file.name} - Backend PDF extraction needed for full parsing`);
+      } else if (file.type.includes('text') || file.name.endsWith('.txt')) {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target?.result as string);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      } else {
+        resolve(`File: ${file.name} - Backend extraction needed for this format`);
+      }
+    });
   };
 
   const getDivisionQuoteStatus = () => {
@@ -272,9 +373,15 @@ export default function DivisionQuoteSection({
               <label className="block font-medium mb-2">Quote File:</label>
               <input 
                 type="file" 
-                accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
+                accept=".pdf,.doc,.docx,.xlsx,.xls,.csv,.txt"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 className="w-full border rounded p-2"
               />
+              {selectedFile && (
+                <div className="mt-2 text-sm text-gray-600">
+                  Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)}KB)
+                </div>
+              )}
             </div>
             
             <div className="mb-6">
@@ -294,9 +401,11 @@ export default function DivisionQuoteSection({
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                onClick={handleFileUpload}
+                disabled={!selectedFile || !selectedVendor.trim() || isUploading}
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Upload & Parse
+                {isUploading ? '🤖 AI Parsing...' : '📎 Upload & Parse'}
               </button>
             </div>
           </div>
