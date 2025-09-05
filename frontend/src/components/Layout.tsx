@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
+import ProjectSwitcher from './ProjectSwitcher';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -30,32 +31,30 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             
             {/* Navigation */}
-            <nav className="hidden md:flex space-x-8">
+            <nav className="hidden md:flex items-center space-x-6">
               <Link 
-                to="/budget" 
+                to="/projects" 
                 className={cn(
                   "px-3 py-2 text-sm font-medium",
-                  location.pathname === '/budget' 
+                  location.pathname === '/projects' 
                     ? "text-primary border-b-2 border-primary" 
                     : "text-white hover:text-primary"
                 )}
               >
-                Budget Upload
+                Projects
               </Link>
+              <ProjectSwitcher />
               <Link 
-                to="/quotes" 
+                to="/projects/create" 
                 className={cn(
                   "px-3 py-2 text-sm font-medium",
-                  location.pathname === '/quotes' 
+                  location.pathname === '/projects/create' 
                     ? "text-primary border-b-2 border-primary" 
                     : "text-white hover:text-primary"
                 )}
               >
-                Quote Upload
+                New Project
               </Link>
-              <a href="#" className="text-white hover:text-primary px-3 py-2 text-sm font-medium">
-                Dashboard
-              </a>
             </nav>
             
             {/* User menu */}
