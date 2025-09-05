@@ -7,6 +7,7 @@ interface DivisionQuoteSectionProps {
 }
 
 interface DivisionQuote {
+  quote_id?: string;
   vendor_name: string;
   total_price: number;
   status: 'pending' | 'received' | 'awarded';
@@ -14,6 +15,17 @@ interface DivisionQuote {
   timeline?: string;
   notes?: string;
   variance_percent?: number;
+  line_items?: Array<{
+    description: string;
+    total_price: number;
+    quantity?: number;
+    unit?: string;
+  }>;
+  vendor_info?: {
+    contact_email?: string;
+    contact_phone?: string;
+    quote_date?: string;
+  };
 }
 
 export default function DivisionQuoteSection({ 
@@ -29,6 +41,7 @@ export default function DivisionQuoteSection({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
+  const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
 
   // Mock division-level quotes - replace with actual API call
   const mockDivisionQuotes: DivisionQuote[] = [
@@ -65,27 +78,37 @@ export default function DivisionQuoteSection({
     try {
       // Load real quotes from backend
       const divisionId = `${division.divisionCode}-${projectId}`;
+      console.log(`🔍 Loading quotes for division: ${divisionId} (Division ${division.divisionCode})`);
       const response = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/compare`);
       
       if (response.ok) {
         const data = await response.json();
         
-        // Convert backend quote data to component format
-        const quotes: DivisionQuote[] = data.vendor_quotes.map((vendorQuote: any) => {
-          const totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
-          const variancePercent = division.divisionTotal > 0 ? 
-            Math.round(((totalPrice - division.divisionTotal) / division.divisionTotal) * 100) : 0;
-            
-          return {
-            vendor_name: vendorQuote.vendor_name,
-            total_price: totalPrice,
-            status: vendorQuote.status === 'parsed' ? 'received' : vendorQuote.status,
-            coverage: 'full_division',
-            timeline: '4 weeks',
-            notes: 'AI Parsed from uploaded file',
-            variance_percent: variancePercent
-          };
-        });
+        // Convert backend quote data to component format and filter out incomplete quotes
+        const quotes: DivisionQuote[] = data.vendor_quotes
+          .map((vendorQuote: any) => {
+            const totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+            const variancePercent = division.divisionTotal > 0 ? 
+              Math.round(((totalPrice - division.divisionTotal) / division.divisionTotal) * 100) : 0;
+              
+            return {
+              quote_id: vendorQuote.quote_id,
+              vendor_name: vendorQuote.vendor_name,
+              total_price: totalPrice,
+              status: vendorQuote.status === 'parsed' ? 'received' : vendorQuote.status,
+              coverage: 'full_division',
+              timeline: '4 weeks',
+              notes: 'AI Parsed from uploaded file',
+              variance_percent: variancePercent,
+              line_items: vendorQuote.line_items.map((item: any) => ({
+                description: item.description,
+                total_price: item.total_price,
+                quantity: item.quantity,
+                unit: item.unit
+              }))
+            };
+          })
+          .filter((quote: DivisionQuote) => quote.total_price > 0); // Only show quotes with actual parsed totals
         
         setDivisionQuotes(quotes);
       } else {
@@ -110,6 +133,42 @@ export default function DivisionQuoteSection({
     setSelectedFile(null);
     setUploadResult(null);
     setShowUploadModal(true);
+  };
+
+  const toggleQuoteExpanded = (quoteId: string) => {
+    setExpandedQuotes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(quoteId)) {
+        newSet.delete(quoteId);
+      } else {
+        newSet.add(quoteId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleDeleteQuote = async (quote: DivisionQuote) => {
+    if (!quote.quote_id) return;
+    
+    const confirmDelete = window.confirm(`Delete quote from ${quote.vendor_name} ($${quote.total_price.toLocaleString()})?`);
+    if (!confirmDelete) return;
+    
+    try {
+      const response = await fetch(`http://localhost:8001/api/quotes/${quote.quote_id}`, {
+        method: 'DELETE'
+      });
+      
+      if (response.ok) {
+        // Reload quotes to reflect deletion
+        await loadDivisionQuotes();
+        alert('Quote deleted successfully');
+      } else {
+        alert('Failed to delete quote');
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      alert('Failed to delete quote');
+    }
   };
 
   const handleFileUpload = async () => {
@@ -265,6 +324,12 @@ export default function DivisionQuoteSection({
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
+                        <button
+                          onClick={() => quote.quote_id && toggleQuoteExpanded(quote.quote_id)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          {expandedQuotes.has(quote.quote_id || '') ? '▼' : '▶'}
+                        </button>
                         <span className="font-medium">{quote.vendor_name}</span>
                         <span className={`px-2 py-1 rounded text-xs ${
                           quote.status === 'awarded' ? 'bg-purple-100 text-purple-800' :
@@ -296,6 +361,12 @@ export default function DivisionQuoteSection({
                             <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
                               Clarify
                             </button>
+                            <button 
+                              onClick={() => handleDeleteQuote(quote)}
+                              className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
                           </div>
                         ) : (
                           <button 
@@ -308,6 +379,30 @@ export default function DivisionQuoteSection({
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Expanded Quote Details */}
+                  {expandedQuotes.has(quote.quote_id || '') && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="text-sm text-gray-700 mb-2 font-medium">Line Items:</div>
+                      <div className="space-y-2">
+                        {quote.line_items?.map((item, itemIdx) => (
+                          <div key={itemIdx} className="flex justify-between items-start text-sm">
+                            <div className="flex-1 pr-3">
+                              <div className="text-gray-900">{item.description}</div>
+                              {(item.quantity || item.unit) && (
+                                <div className="text-gray-500 text-xs">
+                                  {item.quantity && `${item.quantity} `}{item.unit || ''}
+                                </div>
+                              )}
+                            </div>
+                            <div className="font-medium text-gray-900">
+                              ${item.total_price.toLocaleString()}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               

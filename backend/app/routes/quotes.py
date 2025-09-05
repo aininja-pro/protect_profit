@@ -221,7 +221,8 @@ async def upload_division_quote(
         # Create vendor quote record
         quote_id = str(uuid.uuid4())
         
-        # Extract just the project ID from division_id (format: "04-project-uuid")
+        # Extract project UUID and division code
+        division_code = division_id.split('-')[0]  # e.g., "04"
         actual_division_id = division_id.split('-', 1)[1] if '-' in division_id else division_id
         
         quote_record = {
@@ -233,7 +234,8 @@ async def upload_division_quote(
             "file_url": file_url,
             "received_at": datetime.now().isoformat(),
             "status": "draft",
-            "version": 1
+            "version": 1,
+            "division_code": division_code
         }
         
         quote_result = supabase.table("vendor_quotes").insert(quote_record).execute()
@@ -527,13 +529,15 @@ async def compare_division_quotes(division_id: str = Path(...)):
     try:
         supabase = get_supabase_client()
         
-        # Extract just the UUID from division_id (format: "04-project-uuid")
-        actual_division_id = division_id.split('-', 1)[1] if '-' in division_id else division_id
+        # Extract division code and project ID for filtering
+        division_code = division_id.split('-')[0]  # e.g., "04"
+        project_uuid = division_id.split('-', 1)[1] if '-' in division_id else division_id
         
-        # Get all quotes for this division
+        # Get quotes for this specific division
         quotes_result = supabase.table("vendor_quotes")\
             .select("*, vendors(name), quote_line_items(*, line_mappings(budget_line_id))")\
-            .eq("division_id", actual_division_id)\
+            .eq("project_id", project_uuid)\
+            .eq("division_code", division_code)\
             .execute()
         
         if not quotes_result.data:
@@ -551,7 +555,7 @@ async def compare_division_quotes(division_id: str = Path(...)):
         for quote in quotes_result.data:
             vendor_comparison = {
                 "vendor_id": quote["vendor_id"],
-                "vendor_name": quote["vendors"]["name"],
+                "vendor_name": quote["vendors"]["name"] if quote.get("vendors") else quote.get("vendor_name", "Unknown"),
                 "quote_id": quote["id"],
                 "status": quote["status"],
                 "line_items": []
@@ -664,3 +668,47 @@ async def generate_work_order_pdf(division_id: str = Path(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating work order: {str(e)}")
+
+@router.delete("/{quote_id}")
+async def delete_quote(quote_id: str = Path(...)):
+    """Delete a vendor quote and all associated data"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Verify quote exists
+        quote_result = supabase.table("vendor_quotes").select("*").eq("id", quote_id).execute()
+        if not quote_result.data:
+            raise HTTPException(status_code=404, detail="Quote not found")
+        
+        quote = quote_result.data[0]
+        
+        # Delete associated line mappings first (due to foreign key constraints)
+        line_items_result = supabase.table("quote_line_items").select("id").eq("quote_id", quote_id).execute()
+        if line_items_result.data:
+            line_item_ids = [item["id"] for item in line_items_result.data]
+            supabase.table("line_mappings").delete().in_("quote_line_item_id", line_item_ids).execute()
+        
+        # Delete quote line items
+        supabase.table("quote_line_items").delete().eq("quote_id", quote_id).execute()
+        
+        # Delete the quote record
+        supabase.table("vendor_quotes").delete().eq("id", quote_id).execute()
+        
+        # Clean up local file if it exists
+        file_url = quote.get("file_url")
+        if file_url and file_url.startswith("/tmp/"):
+            try:
+                os.remove(file_url)
+            except:
+                pass  # File may not exist or already deleted
+        
+        return {
+            "message": "Quote deleted successfully",
+            "quote_id": quote_id,
+            "vendor_name": quote.get("vendor_name", "Unknown")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting quote: {str(e)}")
