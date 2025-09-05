@@ -13,6 +13,13 @@ interface Quote {
   notes?: string;
   scope?: 'full' | 'partial';
   scope_notes?: string;
+  line_items?: Array<{
+    description: string;
+    quantity?: number;
+    unit?: string;
+    unit_price?: number;
+    total_price: number;
+  }>;
 }
 
 export default function QuoteComparisonSection({ 
@@ -66,9 +73,97 @@ export default function QuoteComparisonSection({
       // const response = await fetch(`/api/quotes/subcategory/${subcategoryName}`);
       // setQuotes(response.data);
       
-      // For demo, only show mock subcategory quotes for specific subcategories
+      // For demo, show quotes for specific subcategories
       if (subcategoryName.includes('5300 - Interior Doors') || subcategoryName.includes('Interior Doors')) {
         setQuotes(mockQuotes);
+      } else if (subcategoryName.includes('2250') || subcategoryName.includes('Concrete Flatwork')) {
+        // Division 04 - Concrete Flatwork subcategory quotes
+        setQuotes([
+          {
+            vendor_name: "ABC Concrete Co",
+            total_price: 42000,
+            status: 'received',
+            timeline: "3 weeks",
+            notes: "Flatwork specialists",
+            scope: 'full',
+            line_items: [
+              {
+                description: "Stem Wall Installation",
+                quantity: 240,
+                unit: "LF",
+                unit_price: 125,
+                total_price: 30000
+              },
+              {
+                description: "Concrete Footings",
+                quantity: 150,
+                unit: "LF", 
+                unit_price: 80,
+                total_price: 12000
+              }
+            ]
+          },
+          {
+            vendor_name: "ProConcrete Inc", 
+            total_price: 44500,
+            status: 'received',
+            timeline: "4 weeks", 
+            notes: "Competitive flatwork pricing",
+            scope: 'full',
+            line_items: [
+              {
+                description: "Stem Wall Construction",
+                quantity: 240,
+                unit: "LF",
+                unit_price: 140,
+                total_price: 33600
+              },
+              {
+                description: "Foundation Footings",
+                quantity: 150,
+                unit: "LF",
+                unit_price: 72,
+                total_price: 10800
+              },
+              {
+                description: "Site Prep & Form Work",
+                total_price: 100
+              }
+            ]
+          }
+        ]);
+      } else if (subcategoryName.includes('2280') || subcategoryName.includes('Block Walls')) {
+        // Division 04 - Concrete Block Walls subcategory quotes
+        setQuotes([
+          {
+            vendor_name: "BlockMaster Pro",
+            total_price: 38500,
+            status: 'received',
+            timeline: "5 weeks",
+            notes: "Block wall specialists", 
+            scope: 'full',
+            line_items: [
+              {
+                description: "Concrete Block Walls w/ Tie Beam",
+                quantity: 800,
+                unit: "SF",
+                unit_price: 45,
+                total_price: 36000
+              },
+              {
+                description: "Mortar and Grout",
+                total_price: 1500
+              },
+              {
+                description: "Tie Beam Reinforcement",
+                quantity: 180,
+                unit: "LF",
+                unit_price: 5.50,
+                total_price: 1000
+              }
+            ]
+          }
+        ]);
       } else {
         setQuotes([]); // No quotes for other subcategories yet
       }
@@ -204,6 +299,27 @@ export default function QuoteComparisonSection({
                     {quote.scope === 'partial' && quote.scope_notes && (
                       <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
                         📝 Partial scope: {quote.scope_notes}
+                      </div>
+                    )}
+                    {quote.line_items && quote.line_items.length > 0 && (
+                      <div className="text-xs text-gray-600 mt-2">
+                        <div className="font-medium mb-1">Quote Line Items:</div>
+                        <div className="space-y-1 bg-gray-50 p-2 rounded max-h-24 overflow-y-auto">
+                          {quote.line_items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-xs">
+                              <span className="flex-1">
+                                {item.description}
+                                {item.quantity && item.unit && (
+                                  <span className="text-gray-500 ml-1">
+                                    ({item.quantity} {item.unit}
+                                    {item.unit_price && ` @ $${item.unit_price}`})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-medium ml-2">${item.total_price.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
