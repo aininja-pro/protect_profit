@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProject } from '../contexts/ProjectContext';
-import AIAssistant from '../components/AIAssistant';
+import WorkingAIPanel from '../components/WorkingAIPanel';
 import DivisionBreakdownTable from '../components/DivisionBreakdownTable';
 import { quotesApi, Division } from '../services/quotesApi';
 
@@ -13,6 +13,7 @@ export default function ProjectPage() {
   const [divisionStatuses, setDivisionStatuses] = useState<Record<string, any>>({});
   const [projectTotals, setProjectTotals] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isAIAnalysisOpen, setIsAIAnalysisOpen] = useState(false);
 
   useEffect(() => {
     loadProjectData();
@@ -102,6 +103,12 @@ export default function ProjectPage() {
             <p className="text-gray-600">Project ID: {projectId}</p>
           </div>
           <div className="flex space-x-3">
+            <button
+              onClick={() => setIsAIAnalysisOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 font-medium flex items-center gap-2 transition-all"
+            >
+              🤖 AI Analysis
+            </button>
             <button
               onClick={() => navigate('/projects')}
               className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
@@ -208,12 +215,15 @@ export default function ProjectPage() {
         </div>
       )}
       
-      {/* AI Assistant - Floating */}
-      <AIAssistant 
-        context={{
-          type: 'project',
-          projectId: projectId || '',
-        }}
+      {/* AI Analysis Panel */}
+      <WorkingAIPanel
+        isOpen={isAIAnalysisOpen}
+        onClose={() => setIsAIAnalysisOpen(false)}
+        projectId={projectId || ''}
+        projectName={currentProject?.name || 'Project'}
+        divisions={divisions}
+        totalQuotes={totalQuotes}
+        projectTotals={projectTotals}
       />
     </div>
   );
