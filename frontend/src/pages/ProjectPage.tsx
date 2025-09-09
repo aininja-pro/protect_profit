@@ -14,10 +14,12 @@ export default function ProjectPage() {
   const [projectTotals, setProjectTotals] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAIAnalysisOpen, setIsAIAnalysisOpen] = useState(false);
+  const [actualTotalQuotes, setActualTotalQuotes] = useState(0);
 
   useEffect(() => {
     loadProjectData();
   }, [projectId]);
+
 
   const loadProjectData = async () => {
     try {
@@ -55,10 +57,55 @@ export default function ProjectPage() {
         jobTotal: grandTotal * 1.18
       });
 
+      // Calculate accurate quote count in background (non-blocking)
+      calculateActualQuoteCount(divisions);
+
+
     } catch (error) {
       console.error('Failed to load project data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const calculateActualQuoteCount = async (divisionsToCount: Division[]) => {
+    try {
+      // Make all API calls in parallel for faster loading
+      const quotePromises = divisionsToCount.map(async (division) => {
+        const divisionId = `${division.divisionCode}-${projectId}`;
+        
+        // Parallel API calls for this division
+        const [divisionQuotes, subcategoryQuotes] = await Promise.allSettled([
+          fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/divisions/${divisionId}/compare`)
+            .then(res => res.json())
+            .then(data => data.vendor_quotes?.length || 0)
+            .catch(() => 0),
+          
+          fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/subcategories/${division.divisionCode}/${projectId}`)
+            .then(res => res.json()) 
+            .then(data => data.subcategory_quotes?.length || 0)
+            .catch(() => 0)
+        ]);
+
+        const divCount = divisionQuotes.status === 'fulfilled' ? divisionQuotes.value : 0;
+        const subCount = subcategoryQuotes.status === 'fulfilled' ? subcategoryQuotes.value : 0;
+        const totalForDivision = divCount + subCount;
+
+        if (totalForDivision > 0) {
+          console.log(`✅ Division ${division.divisionCode}: ${divCount} division + ${subCount} subcategory = ${totalForDivision} total`);
+        }
+
+        return totalForDivision;
+      });
+
+      // Wait for all divisions to complete in parallel
+      const quoteCounts = await Promise.all(quotePromises);
+      const totalQuotesCount = quoteCounts.reduce((sum, count) => sum + count, 0);
+
+      console.log(`📊 FINAL CALCULATED TOTAL QUOTES: ${totalQuotesCount} (loaded in parallel)`);
+      setActualTotalQuotes(totalQuotesCount);
+    } catch (error) {
+      console.error('Failed to calculate total quotes:', error);
     }
   };
 
@@ -89,7 +136,7 @@ export default function ProjectPage() {
   }
 
   const hasBudget = divisions.length > 0;
-  const totalQuotes = Object.values(divisionStatuses).reduce((sum, status) => sum + (status.quote_count || 0), 0);
+  const totalQuotes = actualTotalQuotes; // Use the accurately calculated total
 
   return (
     <div className="space-y-6">
