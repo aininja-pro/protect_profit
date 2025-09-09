@@ -657,11 +657,12 @@ async def compare_division_quotes(division_id: str = Path(...)):
         division_code = division_id.split('-')[0]  # e.g., "04"
         project_uuid = division_id.split('-', 1)[1] if '-' in division_id else division_id
         
-        # Get quotes for this specific division
+        # Get quotes for this specific division (excluding subcategory-specific quotes)
         quotes_result = supabase.table("vendor_quotes")\
             .select("*, vendors(name), quote_line_items(*, line_mappings(budget_line_id))")\
             .eq("project_id", project_uuid)\
             .eq("division_code", division_code)\
+            .is_("subcategory_id", "null")\
             .execute()
         
         if not quotes_result.data:

@@ -49,7 +49,54 @@ export default function DivisionBreakdownTable({
   const [isQuoteScopeModalOpen, setIsQuoteScopeModalOpen] = useState(false);
   const [selectedDivision, setSelectedDivision] = useState<any>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | undefined>(undefined);
+  const [quoteCounts, setQuoteCounts] = useState<{[key: string]: number}>({});
   
+  const loadQuoteCounts = async () => {
+    try {
+      // Load quote counts for all divisions and subcategories
+      const counts: {[key: string]: number} = {};
+      
+      for (const division of divisions) {
+        // Load division-level quotes (excluding subcategory-specific ones)
+        const divisionId = `${division.divisionCode}-${projectId}`;
+        const divisionResponse = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/compare`);
+        if (divisionResponse.ok) {
+          const divisionData = await divisionResponse.json();
+          counts[`division-${division.divisionCode}`] = divisionData.vendor_quotes?.length || 0;
+        }
+        
+        // Load subcategory quotes
+        const subcategoryResponse = await fetch(`http://localhost:8001/api/quotes/subcategories/${division.divisionCode}/${projectId}`);
+        if (subcategoryResponse.ok) {
+          const subcategoryData = await subcategoryResponse.json();
+          if (subcategoryData.subcategory_quotes) {
+            // Count quotes per subcategory
+            const subcategoryCounts: {[key: string]: number} = {};
+            subcategoryData.subcategory_quotes.forEach((quote: any) => {
+              const subcatId = quote.subcategory_id;
+              subcategoryCounts[subcatId] = (subcategoryCounts[subcatId] || 0) + 1;
+            });
+            
+            // Add to main counts object
+            Object.keys(subcategoryCounts).forEach(subcatId => {
+              counts[`subcategory-${subcatId}`] = subcategoryCounts[subcatId];
+            });
+          }
+        }
+      }
+      
+      setQuoteCounts(counts);
+    } catch (error) {
+      console.error('Error loading quote counts:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    if (divisions.length > 0 && projectId) {
+      loadQuoteCounts();
+    }
+  }, [divisions, projectId]);
+
   const handleRequestQuotes = (division: any, subcategory?: string) => {
     setSelectedDivision(division);
     setSelectedSubcategory(subcategory);
@@ -57,23 +104,15 @@ export default function DivisionBreakdownTable({
   };
 
   const getDivisionQuoteStatus = (division: any) => {
-    // TODO: Replace with actual API call to get real quote counts
-    // For now, mock some divisions having different quote statuses
-    if (division.divisionCode === '11') {
-      return { divisionQuotes: 2, awarded: false };
-    }
-    return { divisionQuotes: 0, awarded: false };
+    const count = quoteCounts[`division-${division.divisionCode}`] || 0;
+    return { divisionQuotes: count, awarded: false };
   };
 
   const getSubcategoryQuoteStatus = (subcategoryName: string) => {
-    // TODO: Replace with actual API call
-    if (subcategoryName.includes('5300 - Interior Doors')) {
-      return { quotes: 3, awarded: false }; // Full 3 quotes
-    }
-    if (subcategoryName.includes('5350 - Interior Door Hardware')) {
-      return { quotes: 1, awarded: false }; // Only 1 quote
-    }
-    return { quotes: 0, awarded: false };
+    // Extract subcategory ID from name (e.g., "2250" from "2250 - Concrete Flatwork")
+    const subcategoryId = subcategoryName.split(' -')[0].trim();
+    const count = quoteCounts[`subcategory-${subcategoryId}`] || 0;
+    return { quotes: count, awarded: false };
   };
 
   const getDivisionBorderColor = (division: any) => {
@@ -109,9 +148,9 @@ export default function DivisionBreakdownTable({
       {divisions.map((division: any, divIndex: number) => (
         <div key={divIndex} className="mb-4 last:mb-0">
           {/* Division Header */}
-          <div className={`flex justify-between items-center p-3 bg-white rounded-lg border-l-4 ${getDivisionBorderColor(division)} shadow-sm`}>
+          <div className={`flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-l-4 ${getDivisionBorderColor(division)} shadow-md mb-3`}>
             <div>
-              <span className="font-bold text-gray-900">
+              <span className="font-bold text-lg text-gray-900 tracking-wide">
                 Division {division.divisionCode} - {division.divisionName}
               </span>
               <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
@@ -143,7 +182,7 @@ export default function DivisionBreakdownTable({
           
           {/* Division Items - Grouped by Subcategory */}
           {division.items && division.items.length > 0 && (
-            <div className="ml-4 mt-2 space-y-2">
+            <div className="ml-6 mt-4 space-y-4">
               {(() => {
                 // Group items by subcategory
                 const subcategoryGroups: {[key: string]: any[]} = {};
@@ -179,10 +218,10 @@ export default function DivisionBreakdownTable({
                     {Object.entries(subcategoryGroups).map(([subcategoryName, items]) => {
                       const subcategoryTotal = items.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0);
                       return (
-                        <div key={subcategoryName} className="space-y-1">
+                        <div key={subcategoryName} className="space-y-3">
                           {/* Subcategory Header */}
-                          <div className={`flex justify-between items-center py-2 px-3 bg-blue-50 rounded border-l-4 ${getSubcategoryBorderColor(subcategoryName)}`}>
-                            <div className="font-semibold text-gray-900">
+                          <div className={`flex justify-between items-center py-3 px-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-l-4 ${getSubcategoryBorderColor(subcategoryName)} shadow-sm`}>
+                            <div className="font-semibold text-base text-gray-900">
                               {subcategoryName}
                               {(() => {
                                 const status = getSubcategoryQuoteStatus(subcategoryName);
@@ -202,17 +241,10 @@ export default function DivisionBreakdownTable({
                             </div>
                           </div>
                           
-                          {/* Quote Comparison Section (expandable) */}
-                          <QuoteComparisonSection 
-                            subcategoryName={subcategoryName}
-                            division={division}
-                            projectId={projectId}
-                          />
-                          
-                          {/* Items under this subcategory */}
-                          <div className="ml-6 space-y-1">
+                          {/* Items under this subcategory - MOVED UP */}
+                          <div className="ml-8 space-y-1">
                             {items.map((item: any, itemIndex: number) => (
-                              <div key={itemIndex} className="flex justify-between items-center py-1 px-3 bg-gray-50 rounded border-l-2 border-gray-300">
+                              <div key={itemIndex} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-200 shadow-xs">
                                 <div className="flex-1">
                                   <div className="text-gray-800">
                                     {(() => {
@@ -231,13 +263,20 @@ export default function DivisionBreakdownTable({
                               </div>
                             ))}
                           </div>
+                          
+                          {/* Quote Comparison Section - MOVED DOWN */}
+                          <QuoteComparisonSection 
+                            subcategoryName={subcategoryName}
+                            division={division}
+                            projectId={projectId}
+                          />
                         </div>
                       );
                     })}
                     
                     {/* Render ungrouped items */}
                     {ungroupedItems.map((item: any, itemIndex: number) => (
-                      <div key={`ungrouped-${itemIndex}`} className="flex justify-between items-center py-2 px-3 bg-gray-50 rounded border-l-2 border-gray-300">
+                      <div key={`ungrouped-${itemIndex}`} className="flex justify-between items-center py-2 px-3 bg-white rounded border border-gray-200 shadow-xs ml-6">
                         <div className="flex-1">
                           <div className="font-medium text-gray-800">
                             {item.description || item.tradeDescription}

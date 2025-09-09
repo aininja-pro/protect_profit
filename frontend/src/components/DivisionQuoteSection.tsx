@@ -139,7 +139,12 @@ export default function DivisionQuoteSection({
   };
 
   useEffect(() => {
-    if (isExpanded) {
+    // Load quotes immediately on mount to get accurate counts
+    loadDivisionQuotes();
+  }, []);
+  
+  useEffect(() => {
+    if (isExpanded && divisionQuotes.length === 0) {
       loadDivisionQuotes();
     }
   }, [isExpanded]);
@@ -330,97 +335,105 @@ export default function DivisionQuoteSection({
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {divisionQuotes.map((quote, idx) => (
-                <div key={idx} className={`p-3 rounded border ${
-                  quote.status === 'received' ? 'border-green-200 bg-green-50' :
-                  quote.status === 'awarded' ? 'border-purple-200 bg-purple-50' :
-                  'border-gray-200 bg-gray-50'
-                }`}>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <button
-                          onClick={() => quote.quote_id && toggleQuoteExpanded(quote.quote_id)}
-                          className="text-gray-400 hover:text-gray-600"
-                        >
-                          {expandedQuotes.has(quote.quote_id || '') ? '▼' : '▶'}
-                        </button>
-                        <span className="font-medium">{quote.vendor_name}</span>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          quote.status === 'awarded' ? 'bg-purple-100 text-purple-800' :
-                          quote.status === 'received' ? 'bg-green-100 text-green-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {quote.status}
-                        </span>
-                        {quote.variance_percent !== undefined && (
-                          <span className={`text-xs ${quote.variance_percent < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {quote.variance_percent > 0 ? '+' : ''}{quote.variance_percent}%
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {quote.notes} • Timeline: {quote.timeline}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-lg">
-                        ${quote.total_price > 0 ? quote.total_price.toLocaleString() : 'TBD'}
-                      </div>
-                      <div className="mt-1">
-                        {quote.status === 'received' ? (
-                          <div className="flex gap-1">
-                            <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                              Award Division
-                            </button>
-                            <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
-                              Clarify
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteQuote(quote)}
-                              className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+            <div className="space-y-4">
+              {divisionQuotes.map((quote, idx) => {
+                const quoteKey = quote.quote_id || `quote-${idx}`;
+                const isExpanded = expandedQuotes.has(quoteKey);
+                const hasLineItems = quote.line_items && quote.line_items.length > 0;
+                
+                return (
+                  <div key={idx} className="bg-white rounded-lg border border-gray-200 border-l-4 border-l-purple-400 shadow-sm hover:shadow-md transition-shadow">
+                    {/* Main Quote Row */}
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">{quote.vendor_name}</div>
+                          {hasLineItems && (
+                            <button
+                              onClick={() => toggleQuoteExpanded(quoteKey)}
+                              className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
                             >
-                              Delete
+                              {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
+                              <span className="ml-1 text-gray-500">({quote.line_items?.length || 0} items)</span>
                             </button>
+                          )}
+                          {quote.variance_percent !== undefined && (
+                            <span className={`text-xs px-2 py-1 rounded ${quote.variance_percent < 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {quote.variance_percent > 0 ? '+' : ''}{quote.variance_percent}%
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {quote.timeline && `Timeline: ${quote.timeline}`}
+                          {quote.notes && ` • ${quote.notes}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="font-bold text-lg text-gray-900">
+                            ${quote.total_price > 0 ? quote.total_price.toLocaleString() : 'TBD'}
                           </div>
-                        ) : (
-                          <button 
-                            onClick={() => handleUploadQuote(quote.vendor_name)}
-                            className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                          >
-                            📎 Upload
-                          </button>
-                        )}
+                          <div className={`text-xs ${
+                            quote.status === 'received' ? 'text-green-600' : 
+                            quote.status === 'awarded' ? 'text-green-700' : 'text-yellow-600'
+                          }`}>
+                            {quote.status}
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          {quote.status === 'received' ? (
+                            <>
+                              <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
+                                Award
+                              </button>
+                              <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                                Clarify
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteQuote(quote)}
+                                className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleUploadQuote(quote.vendor_name)}
+                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                              >
+                                Upload
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Collapsible Line Items */}
+                    {hasLineItems && isExpanded && (
+                      <div className="px-3 pb-3 border-t bg-gray-50">
+                        <div className="text-xs font-medium text-gray-700 mb-2 pt-2">Quote Line Items:</div>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {quote.line_items?.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex justify-between text-xs bg-white p-2 rounded border">
+                              <span className="flex-1">
+                                {item.description}
+                                {item.quantity && item.unit && (
+                                  <span className="text-gray-500 ml-1">
+                                    ({item.quantity} {item.unit})
+                                  </span>
+                                )}
+                              </span>
+                              <span className="font-medium ml-2">${item.total_price.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Expanded Quote Details */}
-                  {expandedQuotes.has(quote.quote_id || '') && (
-                    <div className="mt-3 pt-3 border-t border-gray-200">
-                      <div className="text-sm text-gray-700 mb-2 font-medium">Line Items:</div>
-                      <div className="space-y-2">
-                        {quote.line_items?.map((item, itemIdx) => (
-                          <div key={itemIdx} className="flex justify-between items-start text-sm">
-                            <div className="flex-1 pr-3">
-                              <div className="text-gray-900">{item.description}</div>
-                              {(item.quantity || item.unit) && (
-                                <div className="text-gray-500 text-xs">
-                                  {item.quantity && `${item.quantity} `}{item.unit || ''}
-                                </div>
-                              )}
-                            </div>
-                            <div className="font-medium text-gray-900">
-                              ${item.total_price.toLocaleString()}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
               
               {/* Division Quote Actions */}
               <div className="mt-4 pt-3 border-t flex gap-2">

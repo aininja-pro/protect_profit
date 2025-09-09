@@ -86,7 +86,12 @@ export default function QuoteComparisonSection({
   };
 
   useEffect(() => {
-    if (isExpanded) {
+    // Load quotes immediately on mount to get accurate counts
+    loadQuotes();
+  }, []);
+  
+  useEffect(() => {
+    if (isExpanded && quotes.length === 0) {
       loadQuotes();
     }
   }, [isExpanded]);
@@ -291,13 +296,14 @@ export default function QuoteComparisonSection({
                 No quotes uploaded yet
               </div>
             ) : (
-              quotes.map((quote, idx) => {
+              <div className="space-y-3">
+              {quotes.map((quote, idx) => {
                 const quoteKey = quote.quote_id || `quote-${idx}`;
                 const isExpanded = expandedQuotes.has(quoteKey);
                 const hasLineItems = quote.line_items && quote.line_items.length > 0;
                 
                 return (
-                  <div key={idx} className="bg-white rounded border">
+                  <div key={idx} className="bg-white rounded-lg border border-gray-200 border-l-4 border-l-blue-400 shadow-sm hover:shadow-md transition-shadow">
                     {/* Main Quote Row */}
                     <div className="flex items-center justify-between p-3">
                       <div className="flex-1">
@@ -398,6 +404,8 @@ export default function QuoteComparisonSection({
                   </div>
                 );
               })
+              }
+              </div>
             )}
             
             {/* Upload Actions */}
