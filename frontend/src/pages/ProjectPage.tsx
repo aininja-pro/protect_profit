@@ -172,7 +172,7 @@ export default function ProjectPage() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Budget Total</p>
                 <p className="text-lg font-bold text-gray-900">
-                  {hasBudget ? `$${(projectTotals?.jobTotal || 1031893.14).toLocaleString()}` : 'Not uploaded'}
+                  {hasBudget ? `$${Math.round(projectTotals?.jobTotal || 1031893).toLocaleString()}` : 'Not uploaded'}
                 </p>
               </div>
               <div className={`w-3 h-3 rounded-full ${hasBudget ? 'bg-green-400' : 'bg-gray-300'}`}></div>
@@ -238,12 +238,6 @@ export default function ProjectPage() {
                   className="px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
                 >
                   Update Budget
-                </button>
-                <button
-                  onClick={handleCreateQuotes}
-                  className="px-3 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Manage Quotes
                 </button>
               </div>
             </div>

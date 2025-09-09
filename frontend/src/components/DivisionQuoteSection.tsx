@@ -108,10 +108,17 @@ export default function DivisionQuoteSection({
         // Convert backend quote data to component format and filter out incomplete quotes
         const quotes: DivisionQuote[] = data.vendor_quotes
           .map((vendorQuote: any) => {
-            const totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+            let totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
+            // If line items total to 0 but we have a quote-level total, use that instead
+            if (totalPrice === 0 && vendorQuote.quote_level_total > 0) {
+              totalPrice = vendorQuote.quote_level_total;
+            }
             const variancePercent = division.divisionTotal > 0 ? 
               Math.round(((totalPrice - division.divisionTotal) / division.divisionTotal) * 100) : 0;
               
+            // Extract rich scope summary from normalized_json
+            const scopeSummary = vendorQuote.normalized_json?.scope_summary || 'AI Parsed from uploaded file';
+            
             return {
               quote_id: vendorQuote.quote_id,
               vendor_name: vendorQuote.vendor_name,
@@ -119,7 +126,7 @@ export default function DivisionQuoteSection({
               status: vendorQuote.status === 'parsed' ? 'received' : vendorQuote.status,
               coverage: 'full_division',
               timeline: '4 weeks',
-              notes: 'AI Parsed from uploaded file',
+              notes: scopeSummary,
               variance_percent: variancePercent,
               line_items: vendorQuote.line_items.map((item: any) => ({
                 description: item.description,
