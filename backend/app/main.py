@@ -4,7 +4,7 @@ import os
 from dotenv import load_dotenv
 
 # Import routers
-from .routes import projects, budget, quotes, ai_budget, debug, analysis, quote_scopes, ai_chat
+from .routes import projects, budget, quotes, ai_budget, debug, quote_scopes, ai_chat
 from .db import test_connection
 
 # Load environment variables
@@ -40,7 +40,6 @@ app.include_router(projects.router, prefix="/api")
 app.include_router(budget.router, prefix="/api")  
 app.include_router(quotes.router, prefix="/api")
 app.include_router(ai_budget.router, prefix="/api")
-app.include_router(analysis.router, prefix="/api")
 app.include_router(quote_scopes.router, prefix="/api")
 app.include_router(ai_chat.router, prefix="/api")
 app.include_router(debug.router, prefix="/api")

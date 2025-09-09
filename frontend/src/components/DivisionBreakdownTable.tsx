@@ -206,6 +206,7 @@ export default function DivisionBreakdownTable({
                           <QuoteComparisonSection 
                             subcategoryName={subcategoryName}
                             division={division}
+                            projectId={projectId}
                           />
                           
                           {/* Items under this subcategory */}

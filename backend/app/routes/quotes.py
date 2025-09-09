@@ -286,6 +286,130 @@ async def upload_division_quote(
         print(f"📤 UPLOAD: Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
+
+@router.post("/subcategories/{subcategory_id}/upload")
+async def upload_subcategory_quote(
+    subcategory_id: str = Path(...),
+    project_id: str = Form(...),
+    division_code: str = Form(...),
+    vendor_name: str = Form(...),
+    scope_type: str = Form(...),
+    scope_items: str = Form(""),
+    scope_notes: str = Form(""),
+    file: UploadFile = File(...)
+):
+    """Upload a vendor quote file for a specific subcategory"""
+    try:
+        print(f"📤 SUBCAT UPLOAD: subcategory={subcategory_id}, vendor={vendor_name}")
+        
+        # Validate file type (same as division upload)
+        allowed_types = [
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/msword',
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        ]
+        
+        if file.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=400, 
+                detail="File must be PDF, DOCX, DOC, CSV, or Excel format"
+            )
+        
+        file_content = await file.read()
+        
+        # Check file size (10MB limit)
+        max_size = int(os.getenv('MAX_FILE_SIZE', 10485760))
+        if len(file_content) > max_size:
+            raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+        
+        # Get Supabase client
+        supabase = get_supabase_client()
+        
+        # Store file locally
+        file_id = str(uuid.uuid4())
+        file_path = f"/tmp/subcategory_quotes_{file_id}_{file.filename}"
+        
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Find or create vendor
+        vendor_result = supabase.table("vendors").select("id").eq("name", vendor_name).execute()
+        
+        if vendor_result.data:
+            vendor_id = vendor_result.data[0]["id"]
+        else:
+            vendor_record = {
+                "id": str(uuid.uuid4()),
+                "name": vendor_name,
+                "contact_json": {}
+            }
+            vendor_create = supabase.table("vendors").insert(vendor_record).execute()
+            vendor_id = vendor_create.data[0]["id"]
+        
+        # Create subcategory quote record with new fields
+        quote_id = str(uuid.uuid4())
+        
+        quote_record = {
+            "id": quote_id,
+            "project_id": project_id,
+            "division_id": project_id,  
+            "vendor_id": vendor_id,
+            "vendor_name": vendor_name,
+            "file_url": file_path,
+            "received_at": datetime.now().isoformat(),
+            "status": "draft",
+            "version": 1,
+            "division_code": division_code,
+            "subcategory_id": subcategory_id,
+            "scope_type": scope_type,
+            "scope_items": scope_items,
+            "scope_notes": scope_notes
+        }
+        
+        supabase.table("vendor_quotes").insert(quote_record).execute()
+        
+        return {
+            "message": "Subcategory quote uploaded successfully",
+            "quote_id": quote_id,
+            "vendor_id": vendor_id,
+            "vendor_name": vendor_name,
+            "subcategory_id": subcategory_id,
+            "status": "draft"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"📤 SUBCAT UPLOAD ERROR: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Subcategory upload failed: {str(e)}")
+
+
+@router.get("/subcategories/{division_code}/{project_id}")
+async def get_subcategory_quotes(division_code: str, project_id: str):
+    """Get all subcategory quotes for a division"""
+    try:
+        supabase = get_supabase_client()
+        
+        quotes_result = supabase.table("vendor_quotes")\
+            .select("*, quote_line_items(*)")\
+            .eq("project_id", project_id)\
+            .eq("division_code", division_code)\
+            .not_.is_("subcategory_id", "null")\
+            .execute()
+        
+        return {
+            "division_code": division_code,
+            "project_id": project_id,
+            "subcategory_quotes": quotes_result.data
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve subcategory quotes: {str(e)}")
+
+
 @router.get("/list/{project_id}")
 async def list_quotes(project_id: str):
     """Get all quotes for a project"""

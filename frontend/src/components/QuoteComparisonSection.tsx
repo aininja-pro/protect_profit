@@ -3,9 +3,11 @@ import React, { useState, useEffect } from 'react';
 interface QuoteComparisonSectionProps {
   subcategoryName: string;
   division: any;
+  projectId?: string;
 }
 
 interface Quote {
+  quote_id?: string;
   vendor_name: string;
   total_price: number;
   status: 'pending' | 'received' | 'awarded';
@@ -24,151 +26,60 @@ interface Quote {
 
 export default function QuoteComparisonSection({ 
   subcategoryName, 
-  division 
+  division,
+  projectId 
 }: QuoteComparisonSectionProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
   
   // Enhanced scope selection state
   const [quoteScope, setQuoteScope] = useState<'full' | 'partial'>('full');
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [scopeNotes, setScopeNotes] = useState<string>('');
 
-  // Mock quote data - replace with actual API call
-  const mockQuotes: Quote[] = [
-    {
-      vendor_name: "ABC Millwork",
-      total_price: 14500,
-      status: 'received',
-      timeline: "4 weeks",
-      notes: "Standard millwork",
-      scope: 'full'
-    },
-    {
-      vendor_name: "Custom Door Co",
-      total_price: 15800,
-      status: 'received', 
-      timeline: "3 weeks",
-      notes: "Specializes in barn doors",
-      scope: 'partial',
-      scope_notes: "Includes doors only, excludes hardware installation"
-    },
-    {
-      vendor_name: "Premier Trim", 
-      total_price: 13900,
-      status: 'pending',
-      timeline: "6 weeks",
-      notes: "Lowest bid",
-      scope: 'full'
-    }
-  ];
 
   const loadQuotes = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/quotes/subcategory/${subcategoryName}`);
-      // setQuotes(response.data);
+      const currentProjectId = projectId || 'c846ba2d-6b71-4216-b44c-964adebd6078';
+      const response = await fetch(`http://localhost:8001/api/quotes/subcategories/${division.divisionCode}/${currentProjectId}`);
       
-      // For demo, show quotes for specific subcategories
-      if (subcategoryName.includes('5300 - Interior Doors') || subcategoryName.includes('Interior Doors')) {
-        setQuotes(mockQuotes);
-      } else if (subcategoryName.includes('2250') || subcategoryName.includes('Concrete Flatwork')) {
-        // Division 04 - Concrete Flatwork subcategory quotes
-        setQuotes([
-          {
-            vendor_name: "ABC Concrete Co",
-            total_price: 42000,
-            status: 'received',
-            timeline: "3 weeks",
-            notes: "Flatwork specialists",
-            scope: 'full',
-            line_items: [
-              {
-                description: "Stem Wall Installation",
-                quantity: 240,
-                unit: "LF",
-                unit_price: 125,
-                total_price: 30000
-              },
-              {
-                description: "Concrete Footings",
-                quantity: 150,
-                unit: "LF", 
-                unit_price: 80,
-                total_price: 12000
-              }
-            ]
-          },
-          {
-            vendor_name: "ProConcrete Inc", 
-            total_price: 44500,
-            status: 'received',
-            timeline: "4 weeks", 
-            notes: "Competitive flatwork pricing",
-            scope: 'full',
-            line_items: [
-              {
-                description: "Stem Wall Construction",
-                quantity: 240,
-                unit: "LF",
-                unit_price: 140,
-                total_price: 33600
-              },
-              {
-                description: "Foundation Footings",
-                quantity: 150,
-                unit: "LF",
-                unit_price: 72,
-                total_price: 10800
-              },
-              {
-                description: "Site Prep & Form Work",
-                total_price: 100
-              }
-            ]
-          }
-        ]);
-      } else if (subcategoryName.includes('2280') || subcategoryName.includes('Block Walls')) {
-        // Division 04 - Concrete Block Walls subcategory quotes
-        setQuotes([
-          {
-            vendor_name: "BlockMaster Pro",
-            total_price: 38500,
-            status: 'received',
-            timeline: "5 weeks",
-            notes: "Block wall specialists", 
-            scope: 'full',
-            line_items: [
-              {
-                description: "Concrete Block Walls w/ Tie Beam",
-                quantity: 800,
-                unit: "SF",
-                unit_price: 45,
-                total_price: 36000
-              },
-              {
-                description: "Mortar and Grout",
-                total_price: 1500
-              },
-              {
-                description: "Tie Beam Reinforcement",
-                quantity: 180,
-                unit: "LF",
-                unit_price: 5.50,
-                total_price: 1000
-              }
-            ]
-          }
-        ]);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Filter quotes for this specific subcategory
+        const subcategoryId = subcategoryName.split(' -')[0].trim();
+        const filteredQuotes = data.subcategory_quotes?.filter((quote: any) => 
+          quote.subcategory_id === subcategoryId
+        ) || [];
+        
+        // Convert to our Quote interface format
+        const formattedQuotes = filteredQuotes.map((quote: any) => ({
+          quote_id: quote.id,
+          vendor_name: quote.vendor_name,
+          total_price: quote.normalized_json?.pricing_summary?.total_amount || 0,
+          status: quote.status === 'parsed' ? 'received' : 'pending',
+          timeline: quote.normalized_json?.timeline?.completion_date || '',
+          notes: quote.normalized_json?.scope_summary || '',
+          scope: quote.scope_type || 'full',
+          scope_notes: quote.scope_notes || '',
+          line_items: quote.normalized_json?.line_items || []
+        }));
+        
+        setQuotes(formattedQuotes);
       } else {
-        setQuotes([]); // No quotes for other subcategories yet
+        setQuotes([]);
       }
     } catch (error) {
       console.error('Error loading quotes:', error);
+      setQuotes([]);
     } finally {
       setLoading(false);
     }
@@ -196,6 +107,98 @@ export default function QuoteComparisonSection({
     setQuoteScope('full');
     setSelectedItems(new Set());
     setScopeNotes('');
+    setSelectedFile(null);
+  };
+
+  const handleSubcategoryUpload = async () => {
+    if (!selectedFile || !selectedVendor.trim()) {
+      alert('Please select a file and enter vendor name');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Use subcategory upload endpoint instead of division
+      const formData = new FormData();
+      const currentProjectId = projectId || 'c846ba2d-6b71-4216-b44c-964adebd6078'; // Use prop or fallback
+      formData.append('project_id', currentProjectId);
+      formData.append('division_code', division.divisionCode);
+      formData.append('vendor_name', selectedVendor);
+      formData.append('scope_type', quoteScope);
+      formData.append('scope_items', JSON.stringify(Array.from(selectedItems)));
+      formData.append('scope_notes', scopeNotes);
+      formData.append('file', selectedFile);
+
+      // Extract subcategory ID from subcategory name (e.g., "2250" from "2250 - Concrete Flatwork")
+      const subcategoryId = subcategoryName.split(' -')[0].trim();
+      
+      const uploadResponse = await fetch(`http://localhost:8001/api/quotes/subcategories/${subcategoryId}/upload`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+      }
+      
+      const uploadResult = await uploadResponse.json();
+      
+      // Parse the uploaded quote
+      const parseResponse = await fetch(`http://localhost:8001/api/quotes/${uploadResult.quote_id}/parse`, {
+        method: 'POST'
+      });
+      
+      if (!parseResponse.ok) {
+        throw new Error(`Parse failed: ${parseResponse.statusText}`);
+      }
+      
+      const parseResult = await parseResponse.json();
+      
+      alert(`✅ Subcategory quote uploaded and parsed!\n\nVendor: ${uploadResult.vendor_name}\nSubcategory: ${subcategoryName}\nTotal: $${parseResult.total_amount?.toLocaleString() || '0'}\nConfidence: ${Math.round((parseResult.confidence_score || 0) * 100)}%`);
+      handleCloseModal();
+      // Refresh the quotes list to show the new upload
+      await loadQuotes();
+      
+    } catch (error) {
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteQuote = async (quoteId: string, vendorName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the quote from ${vendorName}?`)) {
+      return;
+    }
+
+    setIsDeleting(quoteId);
+    try {
+      const response = await fetch(`http://localhost:8001/api/quotes/${quoteId}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Delete failed: ${response.statusText}`);
+      }
+
+      alert(`✅ Quote from ${vendorName} deleted successfully`);
+      // Refresh the quotes list
+      await loadQuotes();
+    } catch (error) {
+      alert(`Failed to delete quote: ${error}`);
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const toggleQuoteDetails = (quoteId: string) => {
+    const newExpanded = new Set(expandedQuotes);
+    if (newExpanded.has(quoteId)) {
+      newExpanded.delete(quoteId);
+    } else {
+      newExpanded.add(quoteId);
+    }
+    setExpandedQuotes(newExpanded);
   };
 
   // Get budget line items for this subcategory
@@ -288,25 +291,95 @@ export default function QuoteComparisonSection({
                 No quotes uploaded yet
               </div>
             ) : (
-              quotes.map((quote, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 bg-white rounded border">
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{quote.vendor_name}</div>
-                    <div className="text-xs text-gray-500">
-                      {quote.timeline && `Timeline: ${quote.timeline}`}
-                      {quote.notes && ` • ${quote.notes}`}
-                    </div>
-                    {quote.scope === 'partial' && quote.scope_notes && (
-                      <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
-                        📝 Partial scope: {quote.scope_notes}
+              quotes.map((quote, idx) => {
+                const quoteKey = quote.quote_id || `quote-${idx}`;
+                const isExpanded = expandedQuotes.has(quoteKey);
+                const hasLineItems = quote.line_items && quote.line_items.length > 0;
+                
+                return (
+                  <div key={idx} className="bg-white rounded border">
+                    {/* Main Quote Row */}
+                    <div className="flex items-center justify-between p-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">{quote.vendor_name}</div>
+                          {hasLineItems && (
+                            <button
+                              onClick={() => toggleQuoteDetails(quoteKey)}
+                              className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50"
+                            >
+                              {isExpanded ? '▲ Hide Details' : '▼ Show Details'}
+                              <span className="ml-1 text-gray-500">({quote.line_items?.length || 0} items)</span>
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          {quote.timeline && `Timeline: ${quote.timeline}`}
+                          {quote.notes && ` • ${quote.notes}`}
+                        </div>
+                        {quote.scope === 'partial' && quote.scope_notes && (
+                          <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
+                            📝 Partial scope: {quote.scope_notes}
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {quote.line_items && quote.line_items.length > 0 && (
-                      <div className="text-xs text-gray-600 mt-2">
-                        <div className="font-medium mb-1">Quote Line Items:</div>
-                        <div className="space-y-1 bg-gray-50 p-2 rounded max-h-24 overflow-y-auto">
-                          {quote.line_items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="font-bold text-lg text-gray-900">
+                            ${quote.total_price.toLocaleString()}
+                          </div>
+                          <div className={`text-xs ${
+                            quote.status === 'received' ? 'text-green-600' : 
+                            quote.status === 'awarded' ? 'text-green-700' : 'text-yellow-600'
+                          }`}>
+                            {quote.status}
+                          </div>
+                        </div>
+                        <div className="flex gap-1">
+                          {quote.status === 'received' ? (
+                            <>
+                              <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
+                                Award
+                              </button>
+                              <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
+                                Clarify
+                              </button>
+                              <button 
+                                onClick={() => quote.quote_id && handleDeleteQuote(quote.quote_id, quote.vendor_name)}
+                                disabled={isDeleting === quote.quote_id}
+                                className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {isDeleting === quote.quote_id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleUploadQuote(quote.vendor_name)}
+                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                              >
+                                Upload
+                              </button>
+                              <button 
+                                onClick={() => quote.quote_id && handleDeleteQuote(quote.quote_id, quote.vendor_name)}
+                                disabled={isDeleting === quote.quote_id}
+                                className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+                              >
+                                {isDeleting === quote.quote_id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Collapsible Line Items */}
+                    {hasLineItems && isExpanded && (
+                      <div className="px-3 pb-3 border-t bg-gray-50">
+                        <div className="text-xs font-medium text-gray-700 mb-2 pt-2">Quote Line Items:</div>
+                        <div className="space-y-1 max-h-48 overflow-y-auto">
+                          {quote.line_items?.map((item, itemIdx) => (
+                            <div key={itemIdx} className="flex justify-between text-xs bg-white p-2 rounded border">
                               <span className="flex-1">
                                 {item.description}
                                 {item.quantity && item.unit && (
@@ -323,43 +396,8 @@ export default function QuoteComparisonSection({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="font-bold text-lg text-gray-900">
-                        ${quote.total_price.toLocaleString()}
-                      </div>
-                      <div className={`text-xs ${
-                        quote.status === 'received' ? 'text-green-600' : 
-                        quote.status === 'awarded' ? 'text-green-700' : 'text-yellow-600'
-                      }`}>
-                        {quote.status}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {quote.status === 'received' ? (
-                        <>
-                          <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                            Award
-                          </button>
-                          <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
-                            Clarify
-                          </button>
-                          <button className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700">
-                            Delete
-                          </button>
-                        </>
-                      ) : (
-                        <button 
-                          onClick={() => handleUploadQuote(quote.vendor_name)}
-                          className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                        >
-                          Upload
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
             
             {/* Upload Actions */}
@@ -412,6 +450,7 @@ export default function QuoteComparisonSection({
                 type="file" 
                 accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
                 className="w-full border rounded p-2"
+                onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
               />
             </div>
             
@@ -544,19 +583,10 @@ export default function QuoteComparisonSection({
               </button>
               <button
                 className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark"
-                onClick={() => {
-                  // TODO: Implement upload logic with scope data
-                  console.log('Upload quote:', {
-                    vendor: selectedVendor,
-                    scope: quoteScope,
-                    selectedItems: Array.from(selectedItems),
-                    notes: scopeNotes,
-                    total: quoteScope === 'partial' ? selectedTotal : subcategoryItems.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0)
-                  });
-                  handleCloseModal();
-                }}
+                onClick={handleSubcategoryUpload}
+                disabled={isUploading}
               >
-                Upload & Parse
+                {isUploading ? 'Uploading...' : 'Upload & Parse'}
               </button>
             </div>
           </div>
