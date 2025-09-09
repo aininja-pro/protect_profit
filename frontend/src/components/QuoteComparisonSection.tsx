@@ -44,6 +44,10 @@ export default function QuoteComparisonSection({
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [scopeNotes, setScopeNotes] = useState<string>('');
 
+  // Helper function to format currency without decimals
+  const formatCurrency = (amount: number) => {
+    return Math.round(amount).toLocaleString();
+  };
 
   const loadQuotes = async () => {
     setLoading(true);
@@ -159,7 +163,7 @@ export default function QuoteComparisonSection({
       
       const parseResult = await parseResponse.json();
       
-      alert(`✅ Subcategory quote uploaded and parsed!\n\nVendor: ${uploadResult.vendor_name}\nSubcategory: ${subcategoryName}\nTotal: $${parseResult.total_amount?.toLocaleString() || '0'}\nConfidence: ${Math.round((parseResult.confidence_score || 0) * 100)}%`);
+      alert(`✅ Subcategory quote uploaded and parsed!\n\nVendor: ${uploadResult.vendor_name}\nSubcategory: ${subcategoryName}\nTotal: $${parseResult.total_amount ? formatCurrency(parseResult.total_amount) : '0'}\nConfidence: ${Math.round((parseResult.confidence_score || 0) * 100)}%`);
       handleCloseModal();
       // Refresh the quotes list to show the new upload
       await loadQuotes();
@@ -332,7 +336,7 @@ export default function QuoteComparisonSection({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="font-bold text-lg text-gray-900">
-                            ${quote.total_price.toLocaleString()}
+                            ${formatCurrency(quote.total_price)}
                           </div>
                           <div className={`text-xs ${
                             quote.status === 'received' ? 'text-green-600' : 
@@ -395,7 +399,7 @@ export default function QuoteComparisonSection({
                                   </span>
                                 )}
                               </span>
-                              <span className="font-medium ml-2">${item.total_price.toLocaleString()}</span>
+                              <span className="font-medium ml-2">${formatCurrency(item.total_price)}</span>
                             </div>
                           ))}
                         </div>
@@ -484,7 +488,7 @@ export default function QuoteComparisonSection({
                   <span className="text-sm">Full subcategory (all items)</span>
                   {subcategoryItems.length > 0 && (
                     <span className="text-xs text-gray-500 ml-2">
-                      (${subcategoryItems.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0).toLocaleString()})
+                      (${formatCurrency(subcategoryItems.reduce((sum: number, item: any) => sum + (item.total_cost || item.totalCost || 0), 0))})
                     </span>
                   )}
                 </label>
@@ -500,7 +504,7 @@ export default function QuoteComparisonSection({
                   <span className="text-sm">Partial scope (select items below)</span>
                   {quoteScope === 'partial' && selectedTotal > 0 && (
                     <span className="text-xs text-green-600 ml-2 font-medium">
-                      (${selectedTotal.toLocaleString()} selected)
+                      (${formatCurrency(selectedTotal)} selected)
                     </span>
                   )}
                 </label>
@@ -549,7 +553,7 @@ export default function QuoteComparisonSection({
                             </span>
                           </div>
                           <span className="text-sm font-medium text-gray-600 ml-2">
-                            ${itemCost.toLocaleString()}
+                            ${formatCurrency(itemCost)}
                           </span>
                         </label>
                       );
@@ -562,7 +566,7 @@ export default function QuoteComparisonSection({
                   <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-green-800">Selected Items Total:</span>
-                      <span className="font-bold text-green-800">${selectedTotal.toLocaleString()}</span>
+                      <span className="font-bold text-green-800">${formatCurrency(selectedTotal)}</span>
                     </div>
                   </div>
                 )}

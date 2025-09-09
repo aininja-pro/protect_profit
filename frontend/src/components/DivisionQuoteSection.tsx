@@ -43,6 +43,11 @@ export default function DivisionQuoteSection({
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
 
+  // Helper function to format currency without decimals
+  const formatCurrency = (amount: number) => {
+    return Math.round(amount).toLocaleString();
+  };
+
   // Mock division-level quotes - replace with actual API call
   const mockDivisionQuotes: DivisionQuote[] = [
     // Division 04 - Concrete/Masonry quotes
@@ -371,7 +376,7 @@ export default function DivisionQuoteSection({
                       <div className="flex items-center gap-3">
                         <div className="text-right">
                           <div className="font-bold text-lg text-gray-900">
-                            ${quote.total_price > 0 ? quote.total_price.toLocaleString() : 'TBD'}
+                            ${quote.total_price > 0 ? formatCurrency(quote.total_price) : 'TBD'}
                           </div>
                           <div className={`text-xs ${
                             quote.status === 'received' ? 'text-green-600' : 
@@ -425,7 +430,7 @@ export default function DivisionQuoteSection({
                                   </span>
                                 )}
                               </span>
-                              <span className="font-medium ml-2">${item.total_price.toLocaleString()}</span>
+                              <span className="font-medium ml-2">${formatCurrency(item.total_price)}</span>
                             </div>
                           ))}
                         </div>

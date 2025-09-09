@@ -46,10 +46,16 @@ export default function DivisionBreakdownTable({
   grandTotalFromItems,
   projectId
 }: DivisionBreakdownTableProps) {
+  
+  // Helper function to format currency without decimals
+  const formatCurrency = (amount: number) => {
+    return Math.round(amount).toLocaleString();
+  };
   const [isQuoteScopeModalOpen, setIsQuoteScopeModalOpen] = useState(false);
   const [selectedDivision, setSelectedDivision] = useState<any>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string | undefined>(undefined);
   const [quoteCounts, setQuoteCounts] = useState<{[key: string]: number}>({});
+  const [expandedDivisions, setExpandedDivisions] = useState<Set<string>>(new Set());
   
   const loadQuoteCounts = async () => {
     try {
@@ -96,6 +102,16 @@ export default function DivisionBreakdownTable({
       loadQuoteCounts();
     }
   }, [divisions, projectId]);
+
+  const toggleDivisionExpansion = (divisionCode: string) => {
+    const newExpanded = new Set(expandedDivisions);
+    if (newExpanded.has(divisionCode)) {
+      newExpanded.delete(divisionCode);
+    } else {
+      newExpanded.add(divisionCode);
+    }
+    setExpandedDivisions(newExpanded);
+  };
 
   const handleRequestQuotes = (division: any, subcategory?: string) => {
     setSelectedDivision(division);
@@ -147,41 +163,55 @@ export default function DivisionBreakdownTable({
     <div className="bg-gray-50 rounded-lg p-4 h-[70vh] overflow-y-auto">
       {divisions.map((division: any, divIndex: number) => (
         <div key={divIndex} className="mb-4 last:mb-0">
-          {/* Division Header */}
-          <div className={`flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-l-4 ${getDivisionBorderColor(division)} shadow-md mb-3`}>
-            <div>
-              <span className="font-bold text-lg text-gray-900 tracking-wide">
-                Division {division.divisionCode} - {division.divisionName}
-              </span>
-              <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                {division.items?.length || 0} items
-              </span>
-              {(() => {
-                const status = getDivisionQuoteStatus(division);
-                return getQuoteCountDisplay(status.divisionQuotes, 'division');
-              })()}
+          {/* Division Header - Clickable to expand/collapse */}
+          <button 
+            onClick={() => toggleDivisionExpansion(division.divisionCode)}
+            className={`w-full flex justify-between items-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-l-4 ${getDivisionBorderColor(division)} shadow-md mb-3 hover:from-blue-100 hover:to-blue-150 transition-colors text-left`}
+          >
+            <div className="flex items-center gap-3">
+              <div>
+                <span className="font-bold text-lg text-gray-900 tracking-wide">
+                  Division {division.divisionCode} - {division.divisionName}
+                </span>
+                <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                  {division.items?.length || 0} items
+                </span>
+                {(() => {
+                  const status = getDivisionQuoteStatus(division);
+                  return getQuoteCountDisplay(status.divisionQuotes, 'division');
+                })()}
+              </div>
+              <div className="text-sm text-gray-600">
+                {expandedDivisions.has(division.divisionCode) ? '▲ Collapse' : '▼ Expand'}
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <button 
                 className="px-3 py-1 text-sm bg-primary text-white rounded hover:bg-primary-dark transition-colors"
-                onClick={() => handleRequestQuotes(division)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent division toggle
+                  handleRequestQuotes(division);
+                }}
               >
                 Request Quotes
               </button>
-              <span className="font-bold text-lg text-green-600">
-                ${division.divisionTotal?.toLocaleString() || '0'}
+              <span className="font-bold text-lg text-green-600 w-24 text-right">
+                ${division.divisionTotal ? formatCurrency(division.divisionTotal) : '0'}
               </span>
             </div>
-          </div>
+          </button>
           
-          {/* Division-Level Quote Management */}
-          <DivisionQuoteSection 
-            division={division}
-            projectId={projectId}
-          />
-          
-          {/* Division Items - Grouped by Subcategory */}
-          {division.items && division.items.length > 0 && (
+          {/* Collapsible Division Content */}
+          {expandedDivisions.has(division.divisionCode) && (
+            <>
+              {/* Division-Level Quote Management */}
+              <DivisionQuoteSection 
+                division={division}
+                projectId={projectId}
+              />
+              
+              {/* Division Items - Grouped by Subcategory */}
+              {division.items && division.items.length > 0 && (
             <div className="ml-6 mt-4 space-y-4">
               {(() => {
                 // Group items by subcategory
@@ -235,8 +265,8 @@ export default function DivisionBreakdownTable({
                               >
                                 Quote This
                               </button>
-                              <span className="font-bold text-blue-700">
-                                ${subcategoryTotal.toLocaleString()}
+                              <span className="font-bold text-blue-700 w-20 text-right">
+                                ${formatCurrency(subcategoryTotal)}
                               </span>
                             </div>
                           </div>
@@ -257,8 +287,8 @@ export default function DivisionBreakdownTable({
                                     })()}
                                   </div>
                                 </div>
-                                <span className="font-semibold text-green-600 ml-4">
-                                  ${(item.total_cost || item.totalCost)?.toLocaleString() || '0'}
+                                <span className="font-semibold text-green-600 w-20 text-right">
+                                  ${formatCurrency(item.total_cost || item.totalCost || 0)}
                                 </span>
                               </div>
                             ))}
@@ -282,8 +312,8 @@ export default function DivisionBreakdownTable({
                             {item.description || item.tradeDescription}
                           </div>
                         </div>
-                        <span className="font-semibold text-green-600 ml-4">
-                          ${(item.total_cost || item.totalCost)?.toLocaleString() || '0'}
+                        <span className="font-semibold text-green-600 w-20 text-right">
+                          ${formatCurrency(item.total_cost || item.totalCost || 0)}
                         </span>
                       </div>
                     ))}
@@ -291,6 +321,8 @@ export default function DivisionBreakdownTable({
                 );
               })()}
             </div>
+              )}
+            </>
           )}
         </div>
       ))}
@@ -303,25 +335,25 @@ export default function DivisionBreakdownTable({
             {projectSubtotal && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Project Subtotal:</span>
-                <span className="font-semibold">${projectSubtotal.toLocaleString()}</span>
+                <span className="font-semibold">${formatCurrency(projectSubtotal)}</span>
               </div>
             )}
             {grandTotalFromItems && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Items Total:</span>
-                <span className="font-semibold">${grandTotalFromItems.toLocaleString()}</span>
+                <span className="font-semibold">${formatCurrency(grandTotalFromItems)}</span>
               </div>
             )}
             {overheadAndProfit && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Overhead & Profit:</span>
-                <span className="font-semibold">${overheadAndProfit.toLocaleString()}</span>
+                <span className="font-semibold">${formatCurrency(overheadAndProfit)}</span>
               </div>
             )}
             {jobTotal && (
               <div className="flex justify-between">
                 <span className="text-gray-600">Job Total:</span>
-                <span className="font-bold text-lg text-green-600">${jobTotal.toLocaleString()}</span>
+                <span className="font-bold text-lg text-green-600">${formatCurrency(jobTotal)}</span>
               </div>
             )}
           </div>
