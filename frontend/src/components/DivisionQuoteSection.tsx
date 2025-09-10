@@ -109,8 +109,8 @@ export default function DivisionQuoteSection({
         const quotes: DivisionQuote[] = data.vendor_quotes
           .map((vendorQuote: any) => {
             let totalPrice = vendorQuote.line_items.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
-            // If line items total to 0 but we have a quote-level total, use that instead
-            if (totalPrice === 0 && vendorQuote.quote_level_total > 0) {
+            // Always prefer quote-level total when available (more reliable than line item math)
+            if (vendorQuote.quote_level_total > 0) {
               totalPrice = vendorQuote.quote_level_total;
             }
             const variancePercent = division.divisionTotal > 0 ? 

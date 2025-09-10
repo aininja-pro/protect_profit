@@ -472,6 +472,7 @@ async def parse_quote(quote_id: str = Path(...)):
             # Build context for AI parser
             context = {
                 "division_id": quote.get("division_id"),
+                "division_code": quote.get("division_code"),  # Add division_code for trade detection
                 "project_id": quote.get("project_id"),
                 "vendor_name": quote.get("vendor_name"),
                 "file_name": filename

@@ -208,9 +208,9 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                     project_context += "\n\n  **Division-Level Quotes:**"
                     for quote in division_quotes:
                         vendor_name = quote.get('vendor_name', 'Unknown')
-                        # Calculate total using same logic as UI: line items first, then quote-level total if needed
+                        # Always prefer quote-level total when available (more reliable than line item math)
                         total_quote = sum(item.get('total_price', 0) for item in quote.get('line_items', []))
-                        if total_quote == 0 and quote.get('quote_level_total', 0) > 0:
+                        if quote.get('quote_level_total', 0) > 0:
                             total_quote = quote.get('quote_level_total', 0)
                         variance = total_quote - budget
                         variance_pct = (variance / budget * 100) if budget > 0 else 0
@@ -218,12 +218,29 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                         project_context += f"""
     • {vendor_name}: ${total_quote:,} ({variance_pct:+.1f}% vs budget)"""
                         
-                        for item in quote.get('line_items', []):
-                            item_desc = item.get('description', 'Unknown item')[:50]
-                            item_price = item.get('total_price', 0)
-                            coverage = item.get('coverage', 'unknown')
+                        # Add rich scope details from our enhanced parsing
+                        normalized_json = quote.get('normalized_json', {})
+                        scope_summary = normalized_json.get('scope_summary', '')
+                        exclusions = normalized_json.get('exclusions', [])
+                        assumptions = normalized_json.get('assumptions', [])
+                        
+                        if scope_summary:
                             project_context += f"""
-      - {item_desc}: ${item_price:,} ({coverage})"""
+      Scope: {scope_summary}"""
+                        
+                        if exclusions:
+                            project_context += f"""
+      Excludes: {', '.join(exclusions)}"""
+                        
+                        if assumptions:
+                            project_context += f"""
+      Assumes: {', '.join(assumptions)}"""
+                        
+                        # Show work items (even if prices are $0)
+                        work_items = [item.get('description', 'Unknown item') for item in quote.get('line_items', [])]
+                        if work_items:
+                            project_context += f"""
+      Work Items: {len(work_items)} items including {', '.join(work_items[:5])}{'...' if len(work_items) > 5 else ''}"""
                 
                 # Process subcategory-level quotes
                 if subcategory_quotes:

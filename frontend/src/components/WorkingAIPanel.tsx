@@ -116,7 +116,7 @@ export default function WorkingAIPanel({
     
     let welcomeMessage = `👋 Hello! I'm your AI procurement assistant for **${projectName}**.\n\n`;
     welcomeMessage += `**Project Overview:**\n`;
-    welcomeMessage += `• Total Budget: $${projectTotals?.jobTotal?.toLocaleString() || '0'}\n`;
+    welcomeMessage += `• Total Budget: $${Math.round(projectTotals?.jobTotal || 0).toLocaleString()}\n`;
     welcomeMessage += `• Divisions: ${divisions.length}\n`;
     welcomeMessage += `• Total Quotes Found: ${totalQuotesFound} (${totalDivisionQuotes} division-level, ${totalSubcategoryQuotes} subcategory-level)\n\n`;
 

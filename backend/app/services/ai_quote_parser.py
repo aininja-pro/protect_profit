@@ -2,16 +2,65 @@ import os
 from openai import OpenAI
 from typing import Dict, Any, Optional
 import json
+import re
 
 class AIQuoteParser:
     def __init__(self):
         self.openai_api_key = os.getenv('OPENAI_API_KEY')
         
+    def _detect_trade_type(self, context: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        """Detect trade type from division code or context"""
+        if not context:
+            return None
+            
+        # First try to get division_code directly from context
+        division_code = context.get('division_code', '')
+        
+        # If not available, try extracting from division_id (fallback)
+        if not division_code:
+            division_id = context.get('division_id', '')
+            if '-' in division_id:
+                division_code = division_id.split('-')[0]
+            
+        # Map your actual 19 division codes to trade types
+        trade_mapping = {
+            '01': 'general_conditions',
+            '02': 'site_demo', 
+            '03': 'excavation_landscape',
+            '04': 'concrete_masonry',
+            '05': 'rough_carpentry',
+            '06': 'doors_windows',
+            '07': 'mechanical_hvac',
+            '08': 'electrical',
+            '09': 'plumbing',
+            '10': 'wall_ceiling',
+            '11': 'finish_carpentry',
+            '12': 'cabinets',
+            '13': 'flooring_tile',
+            '14': 'specialties',
+            '15': 'decking',
+            '16': 'fencing',
+            '17': 'exterior_facade',
+            '18': 'soffit_fascia_gutters',
+            '19': 'roofing'
+        }
+        
+        print(f"🔍 TRADE_DETECTION: Raw division_code='{division_code}', Padded='{division_code.zfill(2)}'")
+        trade_type = trade_mapping.get(division_code.zfill(2))
+        print(f"🔍 TRADE_DETECTION: Mapped to trade_type='{trade_type}'")
+        return trade_type
+
     def parse_quote_text(self, quote_text: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Parse contractor quote text using OpenAI and return structured data"""
         
         print(f"🔍 AI_QUOTE_PARSER: Starting parse with text length: {len(quote_text) if quote_text else 0}")
         print(f"🔍 AI_QUOTE_PARSER: OpenAI key configured: {bool(self.openai_api_key)}")
+        print(f"🔍 AI_QUOTE_PARSER: Context received: {context}")
+        
+        # Debug trade detection
+        detected_trade = self._detect_trade_type(context)
+        print(f"🎯 AI_QUOTE_PARSER: Detected trade type: {detected_trade}")
+        
         print(f"🔍 AI_QUOTE_PARSER: Text preview: {quote_text[:100] if quote_text else 'No text'}...")
         
         if not self.openai_api_key:
@@ -21,7 +70,7 @@ class AIQuoteParser:
         try:
             client = OpenAI(api_key=self.openai_api_key)
             
-            system_prompt = self._build_quote_parsing_prompt()
+            system_prompt = self._build_quote_parsing_prompt(context)
             user_prompt = self._build_user_prompt(quote_text, context)
             
             response = client.chat.completions.create(
@@ -57,9 +106,202 @@ class AIQuoteParser:
             print(f"OpenAI parsing error: {e}")
             return self._mock_parse_result(quote_text)
     
-    def _build_quote_parsing_prompt(self) -> str:
-        """Build the expert quote parsing system prompt"""
-        return """You are an expert construction estimator and procurement specialist with 20+ years of experience parsing contractor quotes and proposals. Your task is to extract and normalize key information from construction quotes into a standardized format.
+    def _get_trade_specific_prompt(self, trade_type: str) -> str:
+        """Get trade-specific parsing instructions"""
+        
+        trade_prompts = {
+            'general_conditions': """
+GENERAL CONDITIONS BREAKDOWN:
+- PROJECT_MANAGEMENT: Supervision, coordination, project meetings
+- PERMITS: Building permits, fees, inspections, plan reviews
+- TEMPORARY_FACILITIES: Site office, storage, fencing, signage
+- UTILITIES: Temporary power, water, internet, phone
+- CLEANUP: Daily cleanup, final cleanup, dumpster service
+- INSURANCE: Additional coverage, bonds, liability
+- MOBILIZATION: Setup, demobilization, equipment moves""",
+            
+            'site_demo': """
+SITE/DEMO BREAKDOWN:
+- SITE_PREP: Clearing, grading, access roads
+- DEMOLITION: Structure demo, debris removal, hazmat
+- EXCAVATION: Site excavation, backfill, compaction
+- UTILITIES: Temporary utilities, disconnections
+- ENVIRONMENTAL: Soil testing, environmental compliance
+- RESTORATION: Site restoration, final grading""",
+            
+            'excavation_landscape': """
+EXCAVATION/LANDSCAPE BREAKDOWN:
+- EXCAVATION: Footings, trenches, bulk excavation (cubic yards)
+- BACKFILL: Material type, compaction requirements
+- GRADING: Rough grading, final grading (square feet)
+- LANDSCAPING: Plants, trees, irrigation, sod/seed
+- HARDSCAPE: Walkways, retaining walls, drainage
+- SOIL_WORK: Import/export soil, soil amendments""",
+            
+            'concrete_masonry': """
+CONCRETE/MASONRY BREAKDOWN:
+- FOOTINGS: Size, depth, reinforcement details (linear feet)
+- FOUNDATION: Wall thickness, height, waterproofing
+- SLABS: Thickness, reinforcement, finish type (square feet)
+- BLOCK_WORK: Block size, coursing, reinforcement
+- FLATWORK: Sidewalks, driveways, patios (square feet)
+- FINISHES: Stucco, paint, sealing, decorative work
+- MATERIALS: Concrete strength (PSI), block type, mortar""",
+            
+            'rough_carpentry': """
+ROUGH CARPENTRY BREAKDOWN:
+- FRAMING: Wall framing, floor joists, roof trusses/rafters
+- LUMBER: Grades, sizes, species (board feet or linear feet)
+- SHEATHING: Type, thickness, fastening (square feet)
+- STRUCTURAL: Beams, posts, engineered lumber
+- HARDWARE: Hangers, brackets, fasteners, connectors
+- LABOR: Framing labor, crane time, specialties""",
+            
+            'doors_windows': """
+DOORS/WINDOWS BREAKDOWN:
+- WINDOWS: Size, type, energy rating, quantity, brand
+- EXTERIOR_DOORS: Style, material, hardware, weatherstripping
+- INTERIOR_DOORS: Style, material, hardware (per opening)
+- GARAGE_DOORS: Size, type, insulation, openers, remotes
+- HARDWARE: Locks, handles, hinges, closers
+- INSTALLATION: Flashing, trim, weatherproofing, adjustment
+- GLASS: Types, energy ratings, specialty glazing""",
+            
+            'mechanical_hvac': """
+MECHANICAL/HVAC BREAKDOWN:
+- EQUIPMENT: Unit sizes (BTU/tons), efficiency ratings, brands
+- DUCTWORK: Material, sizes, insulation, layout (linear feet)
+- INSTALLATION: Equipment setting, connections, startup
+- CONTROLS: Thermostats, zoning systems, smart controls
+- VENTING: Flue pipes, exhaust fans, makeup air
+- PIPING: Refrigerant lines, condensate, gas lines
+- COMMISSIONING: Testing, balancing, warranty startup
+- PERMITS: Mechanical permits, inspections""",
+            
+            'electrical': """
+ELECTRICAL BREAKDOWN:
+- SERVICE: Main service size (amps), meter, disconnect location
+- PANELS: Distribution panels (locations, amp ratings, circuits)
+- ROUGH_IN: Branch circuits (count, wire gauge, type)
+- FIXTURES: Lighting types, quantities, zones, controls, dimming
+- DEVICES: Outlets, switches, GFCIs, USBs, specialty outlets
+- APPLIANCES: Dedicated circuits (equipment served, amp ratings)
+- LOW_VOLTAGE: Security, data, audio/video, doorbell rough-in
+- SPECIALTY: Generator connections, EV charging, smart home
+- PERMITS: Electrical permits, inspection fees""",
+            
+            'plumbing': """
+PLUMBING BREAKDOWN:
+- ROUGH_IN: Supply lines (material, sizes), waste/vent lines
+- FIXTURES: Toilets, sinks, tubs, showers (brands, models, grades)
+- WATER_HEATER: Size, type (tank/tankless), venting, location
+- APPLIANCES: Connections for dishwasher, ice maker, disposal
+- GAS_LINES: Size, material, appliances served (linear feet)
+- SPECIALTY: Rough-in for future fixtures, hose bibs
+- WATER_TREATMENT: Softeners, filters, treatment systems
+- PERMITS: Plumbing permits, inspection fees""",
+            
+            'wall_ceiling': """
+WALL/CEILING COVERINGS BREAKDOWN:
+- DRYWALL: Thickness, finish level, texture (square feet)
+- INSULATION: R-value, type, thickness (square feet)
+- PAINT: Primer, finish coats, quality grade, colors
+- WALLPAPER: Type, installation, prep work
+- CEILING: Suspended, drywall, specialty finishes
+- TRIM_PREP: Caulking, sanding, surface preparation""",
+            
+            'finish_carpentry': """
+FINISH CARPENTRY BREAKDOWN:
+- INTERIOR_TRIM: Base, case, crown molding (linear feet)
+- MILLWORK: Stairs, railings, built-ins, wainscoting
+- DOORS: Hanging, hardware installation, adjustment
+- SHELVING: Closet systems, built-in shelving
+- SPECIALTY: Custom millwork, architectural details
+- HARDWARE: Installation of finish hardware, accessories
+- LABOR: Installation, fitting, finishing touches""",
+            
+            'cabinets': """
+CABINETS/VANITIES/TOPS BREAKDOWN:
+- KITCHEN_CABINETS: Linear feet, door style, finish, hardware
+- BATH_VANITIES: Sizes, styles, tops, faucet cutouts
+- COUNTERTOPS: Material, edge details, square footage, cutouts
+- INSTALLATION: Mounting, leveling, scribing, trim
+- HARDWARE: Handles, knobs, hinges, drawer slides
+- SPECIALTY: Islands, pantries, built-in features
+- TOPS: Granite, quartz, laminate, edge treatments""",
+            
+            'flooring_tile': """
+FLOORING/TILE BREAKDOWN:
+- HARDWOOD: Species, grade, finish, installation method (sq ft)
+- TILE: Size, type, layout, grout type and color (sq ft)
+- CARPET: Grade, padding, installation (sq ft)
+- VINYL/LVP: Type, thickness, installation (sq ft)
+- SUBFLOOR: Preparation, underlayment, moisture barriers
+- TRANSITIONS: Thresholds, reducers, quarter round
+- LABOR: Installation, prep work, cleanup""",
+            
+            'specialties': """
+SPECIALTIES BREAKDOWN:
+- APPLIANCES: Built-in appliances, installation, connections
+- FIXTURES: Mirrors, medicine cabinets, accessories
+- SPECIALTY_ITEMS: Custom work, unique installations
+- TECHNOLOGY: Smart home devices, security systems
+- BATH_ACCESSORIES: Towel bars, toilet paper holders, etc.
+- MISCELLANEOUS: Items that don't fit other categories""",
+            
+            'decking': """
+DECKING BREAKDOWN:
+- DECK_STRUCTURE: Joists, beams, posts, footings
+- DECKING_MATERIAL: Board type, grade, square footage
+- RAILINGS: Style, height, balusters, top rail
+- STAIRS: Treads, risers, stringers, handrails
+- HARDWARE: Fasteners, joist hangers, post anchors
+- FINISHES: Stain, sealers, protective coatings""",
+            
+            'fencing': """
+FENCING BREAKDOWN:
+- FENCE_MATERIAL: Type, height, style, grade
+- POSTS: Material, spacing, setting method
+- HARDWARE: Gates, hinges, latches, fasteners
+- INSTALLATION: Linear feet, post holes, assembly
+- FINISHES: Stain, paint, protective treatments
+- GATES: Sizes, hardware, automation if applicable""",
+            
+            'exterior_facade': """
+EXTERIOR FACADE BREAKDOWN:
+- SIDING: Type, grade, square footage, trim
+- STONE/BRICK: Veneer, mortar, square footage
+- STUCCO: Base coat, finish coat, texture, color
+- TRIM: Corner boards, window/door trim, decorative
+- HARDWARE: Fasteners, flashing, weather barriers
+- FINISHES: Paint, stain, sealers, maintenance coatings""",
+            
+            'soffit_fascia_gutters': """
+SOFFIT/FASCIA/GUTTERS BREAKDOWN:
+- SOFFIT: Material, venting, square footage
+- FASCIA: Material, linear feet, trim details
+- GUTTERS: Size, material, linear feet, style
+- DOWNSPOUTS: Size, material, quantity, extensions
+- ACCESSORIES: Leaf guards, splash blocks, hangers
+- INSTALLATION: Mounting, slope, drainage connections""",
+            
+            'roofing': """
+ROOFING BREAKDOWN:
+- ROOFING_MATERIAL: Type, grade, squares, warranty
+- UNDERLAYMENT: Type, coverage, ice/water shield
+- FLASHING: Step, valley, chimney, vent penetrations
+- VENTILATION: Ridge vents, intake vents, fans
+- ACCESSORIES: Gutters, downspouts, snow guards
+- LABOR: Installation, cleanup, warranty terms
+- SPECIALTY: Skylights, chimneys, complex roof lines"""
+        }
+        
+        return trade_prompts.get(trade_type, "")
+
+    def _build_quote_parsing_prompt(self, context: Optional[Dict[str, Any]] = None) -> str:
+        """Build the expert quote parsing system prompt with trade-specific intelligence"""
+        
+        base_prompt = """You are an expert construction estimator and procurement specialist with 20+ years of experience parsing contractor quotes and proposals. Your task is to extract and normalize key information from construction quotes into a standardized format.
 
 EXPERTISE AREAS:
 - Construction cost estimation and pricing analysis
@@ -76,7 +318,7 @@ PARSING OBJECTIVES:
 - Assess completeness and confidence level
 
 ENHANCED NARRATIVE PARSING:
-When processing detailed narrative proposals (like electrical, plumbing, HVAC scopes), break down comprehensive descriptions into logical work phases or categories. Look for:
+When processing detailed narrative proposals, break down comprehensive descriptions into logical work phases or categories. Look for:
 - Major work phases (rough-in, trim-out, testing, etc.)
 - Equipment/material categories (panels, fixtures, appliances, etc.)  
 - Distinct work areas (interior, exterior, service, specialty)
@@ -85,9 +327,24 @@ When processing detailed narrative proposals (like electrical, plumbing, HVAC sc
 Create meaningful line items from narrative text while preserving the rich detail in descriptions. If the proposal shows one lump sum but describes multiple work phases, create separate line items for each major phase with proportional pricing estimates.
 
 SCOPE SUMMARY ENHANCEMENT:
-Build comprehensive scope summaries that capture all major work categories mentioned, not just the first section. Include key details about equipment sizes, quantities, and special requirements.
+Build comprehensive scope summaries that capture all major work categories mentioned, not just the first section. Include key details about equipment sizes, quantities, and special requirements."""
+
+        # Detect trade type and add specific guidance
+        trade_type = self._detect_trade_type(context)
+        if trade_type:
+            trade_guidance = self._get_trade_specific_prompt(trade_type)
+            base_prompt += f"""
+
+TRADE-SPECIFIC PARSING GUIDANCE:
+{trade_guidance}
+
+IMPORTANT: Use this trade-specific breakdown to create detailed, granular line items. Instead of generic descriptions, extract specific components, sizes, quantities, and technical details."""
+
+        base_prompt += """
 
 OUTPUT FORMAT: Return valid JSON only, no additional text."""
+        
+        return base_prompt
 
     def _build_user_prompt(self, quote_text: str, context: Optional[Dict[str, Any]] = None) -> str:
         """Build the user prompt with quote text and context"""
@@ -172,11 +429,18 @@ Extract and return as valid JSON with this exact structure:
 
 PARSING GUIDELINES:
 
-FOR NARRATIVE PROPOSALS: If the quote describes multiple work phases in detail but shows one lump sum price:
-- Create separate line items for each major work phase or category
-- Estimate reasonable price breakdown based on industry standards and complexity
-- Preserve detailed descriptions from the original proposal
-- Use "LS" (lump sum) units for complex work phases
+CRITICAL: EXTRACT ONLY ACTUAL PRICES - NEVER FABRICATE OR ESTIMATE:
+- Only extract prices that are explicitly stated in the quote document
+- If a line item has no price shown, set total_price to 0.0
+- If the quote shows a lump sum, do NOT break it down into estimated individual prices
+- If optional add-ons are listed separately, clearly mark them as optional in descriptions
+- Preserve the exact pricing structure as presented by the vendor
+
+FOR NARRATIVE PROPOSALS: If the quote describes multiple work phases but shows one lump sum:
+- Create line items for work phases but set individual prices to 0.0
+- Put the actual lump sum price in pricing_summary.total_amount only
+- Use descriptions like "Phase 1: Description (part of $X lump sum)"
+- DO NOT estimate or allocate portions of the lump sum to individual items
 
 FOR SCOPE SUMMARY: Build a comprehensive summary that mentions:
 - All major work categories covered (e.g., "rough-in", "trim-out", "testing")  
@@ -187,6 +451,23 @@ FOR SCOPE SUMMARY: Build a comprehensive summary that mentions:
 EXAMPLES:
 - Instead of: "Electrical work" 
 - Write: "Complete electrical installation including rough-in wiring, 300A service installation, LED lighting systems, appliance circuits, trim-out, and final testing"
+
+FOR OPTIONAL ADD-ONS: When quotes show base price plus optional items:
+- Extract base price as one line item with actual price
+- Extract each optional add-on as separate line items with actual add-on prices
+- Mark optional items clearly: "Sewer connection (optional add-on)" 
+- Do NOT add optional prices to base price unless explicitly stated as "total including"
+
+EXAMPLES:
+Quote says: "Base plumbing $8,850 + Sewer connection additional $850"
+CORRECT parsing:
+- "Base plumbing work": $8,850
+- "Sewer connection (optional add-on)": $850
+- total_amount: $8,850 (base only)
+
+INCORRECT parsing:
+- "Rough-in work": $3,000 (FABRICATED - not in quote)
+- "Fixture install": $5,850 (FABRICATED - not in quote)
 
 IMPORTANT: Return ONLY the JSON object, no additional text or explanation."""
 
