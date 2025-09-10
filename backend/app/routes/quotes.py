@@ -659,7 +659,7 @@ async def compare_division_quotes(division_id: str = Path(...)):
         
         # Get quotes for this specific division (excluding subcategory-specific quotes)
         quotes_result = supabase.table("vendor_quotes")\
-            .select("*, vendors(name), quote_line_items(*, line_mappings(budget_line_id))")\
+            .select("*, vendors(name), quote_line_items(*, line_mappings(budget_line_id)), normalized_json")\
             .eq("project_id", project_uuid)\
             .eq("division_code", division_code)\
             .is_("subcategory_id", "null")\
@@ -678,11 +678,18 @@ async def compare_division_quotes(division_id: str = Path(...)):
         
         comparison_data = []
         for quote in quotes_result.data:
+            # Extract quote-level total from normalized_json for cases where line items have no pricing
+            quote_level_total = 0
+            if quote.get("normalized_json") and quote["normalized_json"].get("pricing_summary"):
+                quote_level_total = quote["normalized_json"]["pricing_summary"].get("total_amount", 0)
+            
             vendor_comparison = {
                 "vendor_id": quote["vendor_id"],
                 "vendor_name": quote["vendors"]["name"] if quote.get("vendors") else quote.get("vendor_name", "Unknown"),
                 "quote_id": quote["id"],
                 "status": quote["status"],
+                "quote_level_total": quote_level_total,
+                "normalized_json": quote.get("normalized_json", {}),
                 "line_items": []
             }
             

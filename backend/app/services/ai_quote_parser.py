@@ -75,6 +75,18 @@ PARSING OBJECTIVES:
 - Flag ambiguous or unclear information
 - Assess completeness and confidence level
 
+ENHANCED NARRATIVE PARSING:
+When processing detailed narrative proposals (like electrical, plumbing, HVAC scopes), break down comprehensive descriptions into logical work phases or categories. Look for:
+- Major work phases (rough-in, trim-out, testing, etc.)
+- Equipment/material categories (panels, fixtures, appliances, etc.)  
+- Distinct work areas (interior, exterior, service, specialty)
+- Sequential activities that could be priced separately
+
+Create meaningful line items from narrative text while preserving the rich detail in descriptions. If the proposal shows one lump sum but describes multiple work phases, create separate line items for each major phase with proportional pricing estimates.
+
+SCOPE SUMMARY ENHANCEMENT:
+Build comprehensive scope summaries that capture all major work categories mentioned, not just the first section. Include key details about equipment sizes, quantities, and special requirements.
+
 OUTPUT FORMAT: Return valid JSON only, no additional text."""
 
     def _build_user_prompt(self, quote_text: str, context: Optional[Dict[str, Any]] = None) -> str:
@@ -157,6 +169,24 @@ Extract and return as valid JSON with this exact structure:
     "Any concerns or unclear items that need clarification"
   ]
 }}
+
+PARSING GUIDELINES:
+
+FOR NARRATIVE PROPOSALS: If the quote describes multiple work phases in detail but shows one lump sum price:
+- Create separate line items for each major work phase or category
+- Estimate reasonable price breakdown based on industry standards and complexity
+- Preserve detailed descriptions from the original proposal
+- Use "LS" (lump sum) units for complex work phases
+
+FOR SCOPE SUMMARY: Build a comprehensive summary that mentions:
+- All major work categories covered (e.g., "rough-in", "trim-out", "testing")  
+- Key equipment/materials (e.g., "300A electrical service", "LED recessed lighting")
+- Special requirements or notable items
+- Do not just repeat the first section heading
+
+EXAMPLES:
+- Instead of: "Electrical work" 
+- Write: "Complete electrical installation including rough-in wiring, 300A service installation, LED lighting systems, appliance circuits, trim-out, and final testing"
 
 IMPORTANT: Return ONLY the JSON object, no additional text or explanation."""
 

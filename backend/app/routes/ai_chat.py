@@ -208,7 +208,10 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                     project_context += "\n\n  **Division-Level Quotes:**"
                     for quote in division_quotes:
                         vendor_name = quote.get('vendor_name', 'Unknown')
+                        # Calculate total using same logic as UI: line items first, then quote-level total if needed
                         total_quote = sum(item.get('total_price', 0) for item in quote.get('line_items', []))
+                        if total_quote == 0 and quote.get('quote_level_total', 0) > 0:
+                            total_quote = quote.get('quote_level_total', 0)
                         variance = total_quote - budget
                         variance_pct = (variance / budget * 100) if budget > 0 else 0
                         
