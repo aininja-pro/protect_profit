@@ -42,6 +42,8 @@ export default function DivisionQuoteSection({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
+  const [divisionAnalysis, setDivisionAnalysis] = useState<string>('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
   // Helper function to format currency without decimals
   const formatCurrency = (amount: number) => {
@@ -150,6 +152,45 @@ export default function DivisionQuoteSection({
     }
   };
 
+  const fetchDivisionAnalysis = async () => {
+    if (divisionQuotes.length === 0) {
+      setDivisionAnalysis('');
+      return;
+    }
+
+    setAnalysisLoading(true);
+    try {
+      const context = {
+        type: 'division',
+        divisionId: division.divisionCode,
+        divisionName: division.divisionName,
+        budget: division.divisionTotal,
+        quotes: divisionQuotes
+      };
+
+      const response = await fetch('http://localhost:8001/api/ai/division-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Analyze division quotes',
+          context
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDivisionAnalysis(data.ai_response || 'Analysis unavailable');
+      } else {
+        setDivisionAnalysis('AI analysis temporarily unavailable');
+      }
+    } catch (error) {
+      console.error('Division analysis failed:', error);
+      setDivisionAnalysis('AI analysis temporarily unavailable');
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Load quotes immediately on mount to get accurate counts
     loadDivisionQuotes();
@@ -160,6 +201,13 @@ export default function DivisionQuoteSection({
       loadDivisionQuotes();
     }
   }, [isExpanded]);
+
+  useEffect(() => {
+    // Auto-update analysis when quotes change
+    if (isExpanded && divisionQuotes.length > 0) {
+      fetchDivisionAnalysis();
+    }
+  }, [divisionQuotes, isExpanded]);
 
   const handleUploadQuote = (vendorName?: string) => {
     setSelectedVendor(vendorName || '');
@@ -253,6 +301,9 @@ export default function DivisionQuoteSection({
         // Reload quotes from database to show the newly uploaded quote
         await loadDivisionQuotes();
         setShowUploadModal(false);
+        
+        // Trigger fresh AI analysis with new quote
+        setTimeout(fetchDivisionAnalysis, 1000); // Small delay to ensure quote data is loaded
       } else {
         alert(`⚠️ Quote parsed with low confidence (${Math.round(result.confidence_score * 100)}%)\n\nPlease review the parsed data and correct any issues.`);
       }
@@ -470,7 +521,14 @@ export default function DivisionQuoteSection({
                     <span className="text-purple-600">🤖</span>
                     <div className="text-sm text-purple-800">
                       <div className="font-medium">AI Division Analysis:</div>
-                      <div>Elite Carpentry offers excellent value at 5% under budget. Their 6-week timeline fits your schedule. Consider Elite for full division award, or break out specialty items (barn door) for Custom Door Co.</div>
+                      {analysisLoading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin w-3 h-3 border border-purple-600 border-t-transparent rounded-full"></div>
+                          Analyzing quotes...
+                        </div>
+                      ) : (
+                        <div>{divisionAnalysis || 'Click to expand for AI insights'}</div>
+                      )}
                     </div>
                   </div>
                 </div>

@@ -50,6 +50,45 @@ async def ai_chat(chat_request: ChatMessage):
             "error": str(e)
         }
 
+@router.post("/division-analysis")
+async def ai_division_analysis(chat_request: ChatMessage):
+    """Generate quick division-specific insights for quote comparison"""
+    try:
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        if not openai_api_key:
+            return {
+                "ai_response": generate_division_fallback(chat_request.context),
+                "context_used": chat_request.context
+            }
+        
+        # Build division-specific analysis prompt
+        system_prompt = build_division_analysis_prompt(chat_request.context)
+        
+        # Call OpenAI for quick insights
+        client = OpenAI(api_key=openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Use mini for faster, cheaper responses
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Analyze these division quotes and provide strategic insights"}
+            ],
+            max_tokens=200,  # Keep it concise for the box
+            temperature=0.2
+        )
+        
+        return {
+            "ai_response": response.choices[0].message.content,
+            "context_used": chat_request.context,
+            "openai_used": True
+        }
+        
+    except Exception as e:
+        return {
+            "ai_response": generate_division_fallback(chat_request.context),
+            "context_used": chat_request.context,
+            "error": str(e)
+        }
+
 @router.post("/project-analysis")
 async def ai_project_analysis(chat_request: ChatMessage):
     """Handle comprehensive project analysis with full context"""
@@ -261,6 +300,67 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
     project_context += "\n\nProvide specific insights, recommendations, and analysis based on this comprehensive project data."
     
     return base_prompt + project_context
+
+def build_division_analysis_prompt(context: Dict[str, Any]) -> str:
+    """Build focused prompt for division-specific quote analysis"""
+    
+    division_id = context.get('divisionId', '')
+    division_name = context.get('divisionName', 'Unknown Division')
+    budget = context.get('budget', 0)
+    quotes = context.get('quotes', [])
+    
+    base_prompt = f"""You are a construction procurement specialist analyzing quotes for {division_name} work.
+
+DIVISION CONTEXT:
+- Budget: ${budget:,}
+- Quotes Received: {len(quotes)}
+
+QUOTES TO ANALYZE:"""
+    
+    # Add each quote with rich details from our enhanced parsing
+    for quote in quotes:
+        vendor_name = quote.get('vendor_name', 'Unknown')
+        total_price = quote.get('total_price', 0)
+        variance_pct = round(((total_price - budget) / budget * 100)) if budget > 0 else 0
+        timeline = quote.get('timeline', '4 weeks')
+        notes = quote.get('notes', '')  # This contains our rich scope summary
+        
+        base_prompt += f"""
+
+• {vendor_name}: ${total_price:,} ({variance_pct:+}% vs budget)
+  Timeline: {timeline}
+  Scope: {notes[:150]}{'...' if len(notes) > 150 else ''}"""
+    
+    base_prompt += """
+
+ANALYSIS REQUIREMENTS:
+- Provide 1-2 sentences of strategic insight
+- Focus on key differentiators (service levels, scope, value)
+- Mention specific vendor names and key numbers
+- Give clear recommendation or next step
+- Be concise and actionable for quick decision-making
+
+Example: "SHO's $89K reflects premium 400A service vs Firefly's $26K basic 200A. Choose Firefly for budget or SHO for future-proofing."
+"""
+    
+    return base_prompt
+
+def generate_division_fallback(context: Dict[str, Any]) -> str:
+    """Generate fallback analysis when OpenAI unavailable"""
+    
+    division_name = context.get('divisionName', 'Unknown Division')
+    budget = context.get('budget', 0)
+    quotes = context.get('quotes', [])
+    
+    if len(quotes) == 0:
+        return f"Upload {division_name.lower()} quotes to get AI analysis and vendor recommendations."
+    
+    # Quick analysis based on available data
+    quote_count = len(quotes)
+    avg_price = sum(q.get('total_price', 0) for q in quotes) / quote_count if quote_count > 0 else 0
+    budget_variance = round(((avg_price - budget) / budget * 100)) if budget > 0 else 0
+    
+    return f"Received {quote_count} {division_name.lower()} quotes averaging ${avg_price:,.0f} ({budget_variance:+}% vs ${budget:,} budget). AI analysis available once service reconnects."
 
 def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
     """Generate intelligent fallback responses using available project data"""
