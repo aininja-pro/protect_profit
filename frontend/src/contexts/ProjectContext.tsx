@@ -63,10 +63,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             projectToSet = projects.find(p => p.id === savedProjectId) || null;
           }
           
-          // If no valid saved project, use the first available project
-          if (!projectToSet && projects.length > 0) {
-            projectToSet = projects[0];
-          }
+          // Don't automatically set a project - let user choose from project list
+          // This prevents loading all division/quote data when just viewing project list
+          // if (!projectToSet && projects.length > 0) {
+          //   projectToSet = projects[0];
+          // }
           
           if (projectToSet) {
             setCurrentProjectState(projectToSet);

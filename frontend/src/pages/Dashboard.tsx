@@ -7,6 +7,11 @@ import axios from 'axios';
 export default function Dashboard() {
   const navigate = useNavigate();
   const { currentProject, setCurrentProject, recentProjects, setRecentProjects } = useProject();
+
+  // Clear current project when viewing project list to prevent background data loading
+  useEffect(() => {
+    setCurrentProject(null);
+  }, [setCurrentProject]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');

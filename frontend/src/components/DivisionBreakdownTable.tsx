@@ -98,7 +98,9 @@ export default function DivisionBreakdownTable({
   };
 
   React.useEffect(() => {
-    if (divisions.length > 0 && projectId) {
+    // Only load quotes when we have data AND we're not on the projects list page
+    const isOnProjectsListPage = window.location.pathname === '/projects';
+    if (divisions.length > 0 && projectId && !isOnProjectsListPage) {
       loadQuoteCounts();
     }
   }, [divisions, projectId]);
