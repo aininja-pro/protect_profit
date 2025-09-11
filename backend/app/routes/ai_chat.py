@@ -92,18 +92,27 @@ async def ai_division_analysis(chat_request: ChatMessage):
 @router.post("/project-analysis")
 async def ai_project_analysis(chat_request: ChatMessage):
     """Handle comprehensive project analysis with full context"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         openai_api_key = os.getenv('OPENAI_API_KEY')
+        logger.info(f"OpenAI API key present: {bool(openai_api_key)}")
+        
         if not openai_api_key:
+            logger.warning("OpenAI API key not found")
             return {
                 "ai_response": generate_intelligent_fallback(chat_request.message, chat_request.context),
-                "context_used": chat_request.context
+                "context_used": chat_request.context,
+                "debug": "OpenAI API key not found"
             }
         
         # Build comprehensive project analysis prompt
         system_prompt = build_project_analysis_prompt(chat_request.context)
+        logger.info(f"Built system prompt, length: {len(system_prompt)}")
         
         # Call OpenAI with enhanced context
+        logger.info("Calling OpenAI API...")
         client = OpenAI(api_key=openai_api_key)
         response = client.chat.completions.create(
             model="gpt-4o",
@@ -115,6 +124,7 @@ async def ai_project_analysis(chat_request: ChatMessage):
             temperature=0.2  # Lower temperature for more consistent analysis
         )
         
+        logger.info("OpenAI API call successful")
         return {
             "ai_response": response.choices[0].message.content,
             "context_used": chat_request.context,
@@ -122,11 +132,13 @@ async def ai_project_analysis(chat_request: ChatMessage):
         }
         
     except Exception as e:
+        logger.error(f"OpenAI API error: {str(e)}")
         # Enhanced fallback with project data analysis
         return {
             "ai_response": generate_intelligent_fallback(chat_request.message, chat_request.context),
             "context_used": chat_request.context,
-            "error": str(e)
+            "error": str(e),
+            "debug": f"Exception in OpenAI call: {type(e).__name__}"
         }
 
 def build_system_prompt(context: Dict[str, Any]) -> str:
