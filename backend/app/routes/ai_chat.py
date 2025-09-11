@@ -209,9 +209,9 @@ Your responses should be:
 
 Use markdown formatting for clarity. Include specific dollar amounts, percentages, and vendor names when relevant."""
 
-    project_data = context.get('detailedContext', {})
+    project_data = context.get('detailedContext', {}) or {}
     project_name = context.get('projectName', 'Unknown Project')
-    project_totals = context.get('projectTotals', {})
+    project_totals = context.get('projectTotals', {}) or {}
     
     # Build comprehensive context
     project_context = f"""
@@ -224,31 +224,33 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
 
 **DIVISIONS & QUOTES:**"""
 
-    divisions = context.get('divisions', [])
-    division_statuses = context.get('divisionStatuses', {})
+    divisions = context.get('divisions', []) or []
+    division_statuses = context.get('divisionStatuses', {}) or {}
     
     for division in divisions:
+        division = division or {}
         div_code = division.get('divisionCode', 'Unknown')
         div_name = division.get('divisionName', 'Unknown')
         div_budget = division.get('divisionTotal', 0)
-        status_info = division_statuses.get(div_code, {})
+        status_info = division_statuses.get(div_code, {}) or {}
         quote_count = status_info.get('quote_count', 0)
         
         project_context += f"""
 - Division {div_code} - {div_name}: ${div_budget:,} budget, {quote_count} quotes received"""
 
     # Add detailed comparison data if available
-    division_comparisons = project_data.get('divisionComparisons', [])
+    division_comparisons = project_data.get('divisionComparisons', []) or []
     if division_comparisons:
         project_context += "\n\n**DETAILED QUOTE ANALYSIS:**"
         
         for comp in division_comparisons:
+            comp = comp or {}
             div_code = comp.get('divisionCode')
             div_name = comp.get('divisionName')
             budget = comp.get('budget', 0)
-            quotes = comp.get('quotes', [])
-            division_quotes = comp.get('divisionQuotes', [])
-            subcategory_quotes = comp.get('subcategoryQuotes', [])
+            quotes = comp.get('quotes', []) or []
+            division_quotes = comp.get('divisionQuotes', []) or []
+            subcategory_quotes = comp.get('subcategoryQuotes', []) or []
             
             if quotes:
                 project_context += f"\n\n{div_code} - {div_name} (${budget:,} budget):"
