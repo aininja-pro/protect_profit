@@ -60,6 +60,7 @@ class AIQuoteParser:
         # Debug trade detection
         detected_trade = self._detect_trade_type(context)
         print(f"🎯 AI_QUOTE_PARSER: Detected trade type: {detected_trade}")
+        print(f"🎯 AI_QUOTE_PARSER: Full context for trade detection: {context}")
         
         print(f"🔍 AI_QUOTE_PARSER: Text preview: {quote_text[:100] if quote_text else 'No text'}...")
         
