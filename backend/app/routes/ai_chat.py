@@ -271,7 +271,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                         total_quote = sum(item.get('total_price', 0) for item in quote.get('line_items', []))
                         if quote.get('quote_level_total', 0) > 0:
                             total_quote = quote.get('quote_level_total', 0)
-                        variance = total_quote - budget
+                        variance = total_quote - (budget or 0)
                         variance_pct = (variance / budget * 100) if budget > 0 else 0
                         
                         project_context += f"""
