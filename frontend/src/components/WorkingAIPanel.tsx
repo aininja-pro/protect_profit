@@ -186,7 +186,15 @@ export default function WorkingAIPanel({
       
       setMessages(prev => [...prev, aiResponse]);
     } catch (error) {
-      console.error('AI error:', error);
+      console.error('AI error details:', error);
+      console.error('Request context:', {
+        projectId,
+        projectName,
+        divisions,
+        totalQuotes,
+        projectTotals,
+        detailedContext: loadedQuoteData
+      });
       
       const fallbackResponse: Message = {
         id: (Date.now() + 1).toString(),
