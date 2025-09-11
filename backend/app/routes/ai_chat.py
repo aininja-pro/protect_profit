@@ -108,8 +108,14 @@ async def ai_project_analysis(chat_request: ChatMessage):
             }
         
         # Build comprehensive project analysis prompt
-        system_prompt = build_project_analysis_prompt(chat_request.context)
-        logger.info(f"Built system prompt, length: {len(system_prompt)}")
+        try:
+            system_prompt = build_project_analysis_prompt(chat_request.context)
+            logger.info(f"Built system prompt, length: {len(system_prompt)}")
+        except Exception as prompt_error:
+            logger.error(f"Error building system prompt: {prompt_error}")
+            logger.error(f"Context type: {type(chat_request.context)}")
+            logger.error(f"Context content: {chat_request.context}")
+            raise prompt_error
         
         # Call OpenAI with enhanced context
         logger.info("Calling OpenAI API...")
