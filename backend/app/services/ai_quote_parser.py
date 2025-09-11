@@ -483,7 +483,15 @@ FOR OPTIONAL ADD-ONS: When quotes show base price plus optional items:
 EXAMPLES:
 Quote says: "Base plumbing $8,850 + Sewer connection additional $850"
 CORRECT parsing:
-IMPORTANT: Return ONLY the JSON object, no additional text or explanation."""
+CRITICAL: Return ONLY valid JSON. Double-check all commas, brackets, and quotation marks.
+Example format:
+{
+  "pricing_summary": {
+    "total_amount": 27762.96
+  }
+}
+
+Return ONLY the JSON object, no additional text."""
 
     def _validate_parsed_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate and clean up the parsed data"""
