@@ -133,13 +133,26 @@ async def upload_division_quote(
     division_id: str = Path(...),
     project_id: str = Form(...),
     vendor_name: str = Form(...),
+    scope_type: str = Form("complete_division"),  # 'complete_division' | 'specific_items'
+    scope_items: str = Form("[]"),  # JSON array of line item IDs
+    scope_budget_total: float = Form(0.0),  # Total budget of selected items
+    scope_notes: str = Form(""),  # Additional scope clarification
     file: UploadFile = File(...)
 ):
     """Upload a vendor quote file for AI parsing"""
     try:
         print(f"📤 UPLOAD: Received request for division {division_id}")
         print(f"📤 UPLOAD: project_id={project_id}, vendor_name={vendor_name}")
+        print(f"📤 UPLOAD: scope_type={scope_type}, scope_budget=${scope_budget_total}")
         print(f"📤 UPLOAD: file={file.filename}, content_type={file.content_type}, size={file.size}")
+        
+        # Parse and validate scope items
+        try:
+            parsed_scope_items = json.loads(scope_items)
+            print(f"📤 UPLOAD: Scope covers {len(parsed_scope_items)} line items")
+        except json.JSONDecodeError:
+            print(f"📤 UPLOAD: Invalid scope_items JSON, defaulting to empty array")
+            parsed_scope_items = []
         # Validate file type
         allowed_types = [
             'application/pdf',
@@ -229,7 +242,12 @@ async def upload_division_quote(
             "received_at": datetime.now().isoformat(),
             "status": "draft",
             "version": 1,
-            "division_code": division_code
+            "division_code": division_code,
+            # Enhanced scope tracking fields
+            "scope_type": scope_type,
+            "scope_items": parsed_scope_items,
+            "scope_budget_total": scope_budget_total,
+            "scope_notes": scope_notes
         }
         
         quote_result = supabase.table("vendor_quotes").insert(quote_record).execute()
@@ -252,7 +270,10 @@ async def upload_division_quote(
                 "file_name": file.filename,
                 "vendor_name": vendor_name,
                 "division_code": division_id.split('-')[0],
-                "file_size": len(file_content)
+                "file_size": len(file_content),
+                "scope_type": scope_type,
+                "scope_items_count": len(parsed_scope_items),
+                "scope_budget_total": scope_budget_total
             }
         }
         
@@ -268,7 +289,10 @@ async def upload_division_quote(
             "vendor_id": vendor_id,
             "vendor_name": vendor_name,
             "division_id": division_id,
-            "status": "draft"
+            "status": "draft",
+            "scope_type": scope_type,
+            "scope_items_count": len(parsed_scope_items),
+            "scope_budget_total": scope_budget_total
         }
         
     except HTTPException:
@@ -685,6 +709,11 @@ async def compare_division_quotes(division_id: str = Path(...)):
                 "status": quote["status"],
                 "quote_level_total": quote_level_total,
                 "normalized_json": quote.get("normalized_json", {}),
+                # Enhanced scope information
+                "scope_type": quote.get("scope_type", "complete_division"),
+                "scope_items": quote.get("scope_items", []),
+                "scope_budget_total": quote.get("scope_budget_total", 0.0),
+                "scope_notes": quote.get("scope_notes", ""),
                 "line_items": []
             }
             

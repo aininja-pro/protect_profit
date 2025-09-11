@@ -44,6 +44,11 @@ export default function DivisionQuoteSection({
   const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
   const [divisionAnalysis, setDivisionAnalysis] = useState<string>('');
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  
+  // Enhanced scope selection state
+  const [scopeType, setScopeType] = useState<'complete_division' | 'specific_items'>('complete_division');
+  const [selectedScopeItems, setSelectedScopeItems] = useState<string[]>([]);
+  const [scopeBudgetTotal, setScopeBudgetTotal] = useState<number>(0);
 
   // Helper function to format currency without decimals
   const formatCurrency = (amount: number) => {
@@ -213,6 +218,10 @@ export default function DivisionQuoteSection({
     setSelectedVendor(vendorName || '');
     setSelectedFile(null);
     setUploadResult(null);
+    // Reset scope selection to defaults
+    setScopeType('complete_division');
+    setSelectedScopeItems([]);
+    setScopeBudgetTotal(division.divisionTotal || 0);
     setShowUploadModal(true);
   };
 
@@ -262,11 +271,22 @@ export default function DivisionQuoteSection({
     try {
       console.log("🚀 REAL UPLOAD: Starting upload for", selectedVendor);
       
-      // Step 1: Upload the file (REAL upload, not fake)
+      // Step 1: Upload the file with enhanced scope data
       const formData = new FormData();
       formData.append('project_id', projectId);
       formData.append('vendor_name', selectedVendor);
       formData.append('file', selectedFile);
+      // Enhanced scope information
+      formData.append('scope_type', scopeType);
+      formData.append('scope_items', JSON.stringify(selectedScopeItems));
+      formData.append('scope_budget_total', scopeBudgetTotal.toString());
+      formData.append('scope_notes', `${scopeType === 'complete_division' ? 'Complete division coverage' : 'Partial scope coverage'}`);
+      
+      console.log("🎯 SCOPE DATA:", {
+        scope_type: scopeType,
+        scope_items: selectedScopeItems,
+        scope_budget_total: scopeBudgetTotal
+      });
 
       const divisionId = `${division.divisionCode}-${projectId}`;
       
@@ -579,12 +599,94 @@ export default function DivisionQuoteSection({
             </div>
             
             <div className="mb-6">
-              <label className="block font-medium mb-2">Scope:</label>
-              <div className="text-sm text-gray-600 bg-purple-50 p-2 rounded border">
-                <strong>Entire Division:</strong> {division.divisionCode} - {division.divisionName}
-                <br />
-                <span className="text-xs">Covers all subcategories and line items</span>
+              <label className="block font-medium mb-2">Quote Scope:</label>
+              
+              {/* Scope Type Selection */}
+              <div className="mb-3">
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="scopeType"
+                      value="complete_division"
+                      checked={scopeType === 'complete_division'}
+                      onChange={(e) => {
+                        setScopeType('complete_division');
+                        setSelectedScopeItems([]);
+                        setScopeBudgetTotal(division.divisionTotal || 0);
+                      }}
+                      className="mr-2"
+                    />
+                    Complete Division
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="scopeType"
+                      value="specific_items"
+                      checked={scopeType === 'specific_items'}
+                      onChange={(e) => {
+                        setScopeType('specific_items');
+                        setSelectedScopeItems([]);
+                        setScopeBudgetTotal(0);
+                      }}
+                      className="mr-2"
+                    />
+                    Specific Items
+                  </label>
+                </div>
               </div>
+
+              {/* Scope Information Display */}
+              {scopeType === 'complete_division' ? (
+                <div className="text-sm text-gray-600 bg-purple-50 p-3 rounded border">
+                  <strong>Entire Division:</strong> {division.divisionCode} - {division.divisionName}
+                  <br />
+                  <span className="text-xs">Budget: ${division.divisionTotal?.toLocaleString() || '0'}</span>
+                  <br />
+                  <span className="text-xs text-green-600">✓ Covers all subcategories and line items</span>
+                </div>
+              ) : (
+                <div className="text-sm border rounded p-3 bg-blue-50">
+                  <div className="font-medium text-blue-800 mb-2">Select items this quote covers:</div>
+                  <div className="text-xs text-blue-600 mb-3">
+                    Budget Total: ${scopeBudgetTotal.toLocaleString()}
+                  </div>
+                  
+                  {/* For now, show a simple interface - we'll enhance this later */}
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {division.items && division.items.length > 0 ? (
+                      division.items.map((item: any, idx: number) => (
+                        <label key={idx} className="flex items-start text-xs">
+                          <input
+                            type="checkbox"
+                            className="mr-2 mt-0.5"
+                            checked={selectedScopeItems.includes(item.lineId || `item-${idx}`)}
+                            onChange={(e) => {
+                              const itemId = item.lineId || `item-${idx}`;
+                              const itemBudget = item.totalCost || item.total_cost || 0;
+                              
+                              if (e.target.checked) {
+                                setSelectedScopeItems(prev => [...prev, itemId]);
+                                setScopeBudgetTotal(prev => prev + itemBudget);
+                              } else {
+                                setSelectedScopeItems(prev => prev.filter(id => id !== itemId));
+                                setScopeBudgetTotal(prev => prev - itemBudget);
+                              }
+                            }}
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium">{item.tradeDescription || item.description}</div>
+                            <div className="text-gray-500">${(item.totalCost || item.total_cost || 0).toLocaleString()}</div>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="text-gray-500 text-xs">No line items available for this division</div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end gap-3">
