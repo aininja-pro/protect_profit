@@ -475,7 +475,12 @@ export default function DivisionQuoteSection({
                     <div className="flex items-center justify-between p-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <div className="font-medium text-gray-900">{quote.vendor_name}</div>
+                          <div className="font-medium text-gray-900">
+                            {quote.vendor_name}
+                            {quote.scope_type === 'specific_items' && quote.scope_info && (
+                              <span className="font-normal text-gray-600"> - {quote.scope_info.description.split('(')[0].replace('Covers: ', '')}</span>
+                            )}
+                          </div>
                           {hasLineItems && (
                             <button
                               onClick={() => toggleQuoteExpanded(quoteKey)}
@@ -497,8 +502,8 @@ export default function DivisionQuoteSection({
                         </div>
                         {/* Enhanced scope coverage display */}
                         {quote.scope_type === 'specific_items' && quote.scope_info && (
-                          <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
-                            {quote.scope_info.indicator} • {quote.scope_info.description}
+                          <div className="text-xs text-blue-600 mt-1">
+                            {quote.scope_info.indicator} - Partial division coverage
                           </div>
                         )}
                       </div>
@@ -507,40 +512,22 @@ export default function DivisionQuoteSection({
                           <div className="font-bold text-lg text-gray-900">
                             ${quote.total_price > 0 ? formatCurrency(quote.total_price) : 'TBD'}
                           </div>
+                          {quote.scope_type === 'specific_items' && quote.scope_info && (
+                            <div className="text-xs text-gray-600">
+                              vs ${formatCurrency(quote.scope_info.description.match(/\$([0-9,]+)/)?.[1]?.replace(',', '') || 0)} budget
+                            </div>
+                          )}
                           <div className={`text-xs ${
-                            quote.status === 'received' ? 'text-green-600' : 
-                            quote.status === 'awarded' ? 'text-green-700' : 'text-yellow-600'
+                            quote.variance_percent !== undefined && quote.variance_percent < 0 ? 'text-green-600' : 
+                            quote.variance_percent !== undefined && quote.variance_percent > 0 ? 'text-red-600' : 'text-gray-600'
                           }`}>
-                            {quote.status}
+                            {quote.variance_percent !== undefined ? 
+                              `${quote.variance_percent > 0 ? '+' : ''}${quote.variance_percent}% ${quote.variance_percent < 0 ? 'under' : 'over'} budget` :
+                              quote.status
+                            }
                           </div>
                         </div>
-                        <div className="flex gap-1">
-                          {quote.status === 'received' ? (
-                            <>
-                              <button className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">
-                                Award
-                              </button>
-                              <button className="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">
-                                Clarify
-                              </button>
-                              <button 
-                                onClick={() => handleDeleteQuote(quote)}
-                                className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
-                              >
-                                Delete
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button 
-                                onClick={() => handleUploadQuote(quote.vendor_name)}
-                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
-                              >
-                                Upload
-                              </button>
-                            </>
-                          )}
-                        </div>
+                        {/* Removed clutter buttons - actions moved to division level */}
                       </div>
                     </div>
 
