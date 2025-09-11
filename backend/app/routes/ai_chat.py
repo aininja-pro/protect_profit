@@ -268,7 +268,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                     for quote in division_quotes:
                         vendor_name = quote.get('vendor_name', 'Unknown')
                         # Always prefer quote-level total when available (more reliable than line item math)
-                        total_quote = sum(item.get('total_price', 0) for item in quote.get('line_items', []))
+                        total_quote = sum((item.get('total_price') or 0) for item in quote.get('line_items', []) if item)
                         if quote.get('quote_level_total', 0) > 0:
                             total_quote = quote.get('quote_level_total', 0)
                         variance = total_quote - (budget or 0)
@@ -311,8 +311,10 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                         
                         # Calculate total from normalized_json if available
                         total_quote = 0
-                        if quote.get('normalized_json') and quote['normalized_json'].get('pricing_summary'):
-                            total_quote = quote['normalized_json']['pricing_summary'].get('total_amount', 0)
+                        normalized_json = quote.get('normalized_json') or {}
+                        pricing_summary = normalized_json.get('pricing_summary') or {}
+                        if normalized_json and pricing_summary:
+                            total_quote = pricing_summary.get('total_amount', 0) or 0
                         
                         project_context += f"""
     • {vendor_name} (Subcategory {subcategory_id}): ${total_quote:,} - {scope_type}"""
@@ -341,7 +343,7 @@ QUOTES TO ANALYZE:"""
     for quote in quotes:
         vendor_name = quote.get('vendor_name', 'Unknown')
         total_price = quote.get('total_price', 0)
-        variance_pct = round(((total_price - budget) / budget * 100)) if budget > 0 else 0
+        variance_pct = round((((total_price or 0) - (budget or 0)) / (budget or 1) * 100)) if budget and budget > 0 else 0
         timeline = quote.get('timeline', '4 weeks')
         notes = quote.get('notes', '')  # This contains our rich scope summary
         
@@ -378,7 +380,7 @@ def generate_division_fallback(context: Dict[str, Any]) -> str:
     # Quick analysis based on available data
     quote_count = len(quotes)
     avg_price = sum(q.get('total_price', 0) for q in quotes) / quote_count if quote_count > 0 else 0
-    budget_variance = round(((avg_price - budget) / budget * 100)) if budget > 0 else 0
+    budget_variance = round((((avg_price or 0) - (budget or 0)) / (budget or 1) * 100)) if budget and budget > 0 else 0
     
     return f"Received {quote_count} {division_name.lower()} quotes averaging ${avg_price:,.0f} ({budget_variance:+}% vs ${budget:,} budget). AI analysis available once service reconnects."
 
@@ -387,7 +389,7 @@ def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
     
     message_lower = message.lower()
     project_name = context.get('projectName', 'your project')
-    total_budget = context.get('projectTotals', {}).get('jobTotal', 0)
+    total_budget = (context.get('projectTotals') or {}).get('jobTotal', 0)
     total_quotes = context.get('totalQuotes', 0)
     divisions = context.get('divisions', [])
     division_statuses = context.get('divisionStatuses', {})
