@@ -36,21 +36,42 @@ def extract_text_from_file(file_content: bytes, filename: str, content_type: str
         return f"[TEXT_EXTRACTION_FAILED: {filename}]"
 
 def extract_pdf_text(file_content: bytes) -> str:
-    """Extract text from PDF file using pypdf"""
+    """Extract text from PDF file using pdfplumber for better table handling"""
     try:
-        import pypdf
+        import pdfplumber
         import io
         
-        # Create a PDF reader from bytes
-        pdf_reader = pypdf.PdfReader(io.BytesIO(file_content))
         text = ""
         
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
+        with pdfplumber.open(io.BytesIO(file_content)) as pdf:
+            for page in pdf.pages:
+                # Extract regular text
+                page_text = page.extract_text() or ""
+                text += page_text + "\n"
+                
+                # Extract tables and format them clearly for AI
+                tables = page.extract_tables()
+                if tables:
+                    text += "\n=== EXTRACTED TABLES ===\n"
+                    for table_idx, table in enumerate(tables):
+                        text += f"\nTable {table_idx + 1}:\n"
+                        for row_idx, row in enumerate(table):
+                            if row and any(cell for cell in row if cell):  # Skip empty rows
+                                # Format as clear columns for AI
+                                formatted_row = " | ".join(str(cell or "").strip() for cell in row)
+                                text += f"Row {row_idx + 1}: {formatted_row}\n"
+                    text += "=== END TABLES ===\n\n"
         
         return text.strip()
     except ImportError:
-        return "[PDF_EXTRACTION_REQUIRES_PYPDF: pip install pypdf]"
+        # Fallback to pypdf if pdfplumber not available
+        import pypdf
+        import io
+        pdf_reader = pypdf.PdfReader(io.BytesIO(file_content))
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
     except Exception as e:
         return f"[PDF_EXTRACTION_ERROR: {str(e)}]"
 
