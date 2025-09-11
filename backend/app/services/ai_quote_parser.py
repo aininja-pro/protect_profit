@@ -476,10 +476,6 @@ FOR OPTIONAL ADD-ONS: When quotes show base price plus optional items:
 EXAMPLES:
 Quote says: "Base plumbing $8,850 + Sewer connection additional $850"
 CORRECT parsing:
-- "Base plumbing work": $8,850
-- "Sewer connection (optional add-on)": $850
-- total_amount: $8,850 (base only)
-
 IMPORTANT: Return ONLY the JSON object, no additional text or explanation."""
 
     def _validate_parsed_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
