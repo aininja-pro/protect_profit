@@ -112,6 +112,7 @@ class AIQuoteParser:
                 return self._validate_parsed_data(parsed_data)
             except json.JSONDecodeError as e:
                 print(f"❌ JSON_PARSE: Failed to parse JSON: {e}")
+                print(f"❌ JSON_PARSE: Last 500 chars of AI response: {ai_response[-500:] if ai_response else 'No response'}")
                 print(f"❌ JSON_PARSE: Falling back to partial extraction")
                 # If still can't parse JSON, extract what we can from partial response
                 return self._extract_from_partial_json(ai_response, quote_text)
