@@ -11,10 +11,16 @@ interface DivisionQuote {
   vendor_name: string;
   total_price: number;
   status: 'pending' | 'received' | 'awarded';
-  coverage: 'full_division';
+  coverage: 'complete_division' | 'specific_items' | 'full_division';
   timeline?: string;
   notes?: string;
   variance_percent?: number;
+  scope_type?: 'complete_division' | 'specific_items';
+  scope_info?: {
+    description: string;
+    indicator: string;
+    coverage: string;
+  };
   line_items?: Array<{
     description: string;
     total_price: number;
@@ -101,6 +107,39 @@ export default function DivisionQuoteSection({
     ] : [])
   ];
 
+  // Helper function to build scope coverage information
+  const buildScopeInfo = (vendorQuote: any, division: any) => {
+    const scopeType = vendorQuote.scope_type || 'complete_division';
+    const scopeBudget = vendorQuote.scope_budget_total || 0;
+    const scopeItems = vendorQuote.scope_items || [];
+    
+    if (scopeType === 'complete_division') {
+      return {
+        description: `Complete Division: ${division.divisionCode} - ${division.divisionName}`,
+        indicator: '🏗️ Complete Division',
+        coverage: 'full'
+      };
+    } else {
+      // For specific items, try to map scope items to division items
+      const coveredItems = division.items?.filter((item: any) => 
+        scopeItems.includes(item.lineId || `item-${division.items.indexOf(item)}`)
+      ) || [];
+      
+      const itemNames = coveredItems.map((item: any) => 
+        item.tradeDescription || item.description || 'Unknown Item'
+      ).join(', ') || 'Selected Items';
+      
+      const totalItems = division.items?.length || 0;
+      const coveredCount = coveredItems.length;
+      
+      return {
+        description: `Covers: ${itemNames} ($${scopeBudget.toLocaleString()} budget)`,
+        indicator: `📦 ${coveredCount} of ${totalItems} items`,
+        coverage: 'partial'
+      };
+    }
+  };
+
   const loadDivisionQuotes = async () => {
     setLoading(true);
     try {
@@ -120,21 +159,27 @@ export default function DivisionQuoteSection({
             if (vendorQuote.quote_level_total > 0) {
               totalPrice = vendorQuote.quote_level_total;
             }
-            const variancePercent = division.divisionTotal > 0 ? 
-              Math.round(((totalPrice - division.divisionTotal) / division.divisionTotal) * 100) : 0;
+            // Calculate variance against appropriate budget (scope budget vs division total)
+            const scopeBudget = vendorQuote.scope_budget_total > 0 ? vendorQuote.scope_budget_total : division.divisionTotal;
+            const variancePercent = scopeBudget > 0 ? 
+              Math.round(((totalPrice - scopeBudget) / scopeBudget) * 100) : 0;
               
-            // Extract rich scope summary from normalized_json
-            const scopeSummary = vendorQuote.normalized_json?.scope_summary || 'AI Parsed from uploaded file';
+            // Build scope coverage description
+            const scopeInfo = buildScopeInfo(vendorQuote, division);
+            const scopeSummary = vendorQuote.normalized_json?.scope_summary || scopeInfo.description;
             
             return {
               quote_id: vendorQuote.quote_id,
               vendor_name: vendorQuote.vendor_name,
               total_price: totalPrice,
               status: vendorQuote.status === 'parsed' ? 'received' : vendorQuote.status,
-              coverage: 'full_division',
+              coverage: vendorQuote.scope_type || 'complete_division',
               timeline: '4 weeks',
               notes: scopeSummary,
               variance_percent: variancePercent,
+              // Add scope information for display
+              scope_type: vendorQuote.scope_type || 'complete_division',
+              scope_info: scopeInfo,
               line_items: vendorQuote.line_items.map((item: any) => ({
                 description: item.description,
                 total_price: item.total_price,
@@ -450,6 +495,12 @@ export default function DivisionQuoteSection({
                           {quote.timeline && `Timeline: ${quote.timeline}`}
                           {quote.notes && ` • ${quote.notes}`}
                         </div>
+                        {/* Enhanced scope coverage display */}
+                        {quote.scope_type === 'specific_items' && quote.scope_info && (
+                          <div className="text-xs text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded">
+                            {quote.scope_info.indicator} • {quote.scope_info.description}
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="text-right">
