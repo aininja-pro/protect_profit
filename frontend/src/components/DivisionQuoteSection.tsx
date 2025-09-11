@@ -21,6 +21,7 @@ interface DivisionQuote {
     indicator: string;
     coverage: string;
   };
+  scope_budget?: number;
   line_items?: Array<{
     description: string;
     total_price: number;
@@ -180,6 +181,7 @@ export default function DivisionQuoteSection({
               // Add scope information for display
               scope_type: vendorQuote.scope_type || 'complete_division',
               scope_info: scopeInfo,
+              scope_budget: scopeBudget,
               line_items: vendorQuote.line_items.map((item: any) => ({
                 description: item.description,
                 total_price: item.total_price,
@@ -512,9 +514,9 @@ export default function DivisionQuoteSection({
                           <div className="font-bold text-lg text-gray-900">
                             ${quote.total_price > 0 ? formatCurrency(quote.total_price) : 'TBD'}
                           </div>
-                          {quote.scope_type === 'specific_items' && quote.scope_info && (
+                          {quote.scope_type === 'specific_items' && quote.scope_budget && (
                             <div className="text-xs text-gray-600">
-                              vs ${formatCurrency(quote.scope_info.description.match(/\$([0-9,]+)/)?.[1]?.replace(',', '') || 0)} budget
+                              vs ${formatCurrency(quote.scope_budget)} budget
                             </div>
                           )}
                           <div className={`text-xs ${
