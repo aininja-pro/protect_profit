@@ -104,9 +104,15 @@ class AIQuoteParser:
                 elif cleaned_response.startswith('```'):
                     cleaned_response = cleaned_response.replace('```', '').strip()
                 
+                print(f"🔍 JSON_PARSE: Attempting to parse cleaned response length: {len(cleaned_response)}")
+                print(f"🔍 JSON_PARSE: First 200 chars: {cleaned_response[:200]}")
+                
                 parsed_data = json.loads(cleaned_response)
+                print(f"✅ JSON_PARSE: Successfully parsed JSON")
                 return self._validate_parsed_data(parsed_data)
-            except json.JSONDecodeError:
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON_PARSE: Failed to parse JSON: {e}")
+                print(f"❌ JSON_PARSE: Falling back to partial extraction")
                 # If still can't parse JSON, extract what we can from partial response
                 return self._extract_from_partial_json(ai_response, quote_text)
                 
