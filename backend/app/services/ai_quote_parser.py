@@ -119,6 +119,9 @@ class AIQuoteParser:
                 
         except Exception as e:
             print(f"OpenAI parsing error: {e}")
+            print(f"OpenAI error type: {type(e)}")
+            import traceback
+            print(f"OpenAI full traceback: {traceback.format_exc()}")
             return self._mock_parse_result(quote_text)
     
     def _get_trade_specific_prompt(self, trade_type: str) -> str:
