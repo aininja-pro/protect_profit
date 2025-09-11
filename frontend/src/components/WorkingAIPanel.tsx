@@ -165,11 +165,11 @@ export default function WorkingAIPanel({
           message: currentInput,
           context: {
             type: 'project_analysis',
-            projectId,
-            projectName,
-            divisions,
-            totalQuotes,
-            projectTotals,
+            projectId: projectId || '',
+            projectName: projectName || '',
+            divisions: divisions || [],
+            totalQuotes: totalQuotes || 0,
+            projectTotals: projectTotals || {},
             detailedContext: loadedQuoteData || {}
           }
         })
