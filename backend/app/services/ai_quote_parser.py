@@ -436,6 +436,13 @@ CRITICAL: EXTRACT ONLY ACTUAL PRICES - NEVER FABRICATE OR ESTIMATE:
 - If optional add-ons are listed separately, clearly mark them as optional in descriptions
 - Preserve the exact pricing structure as presented by the vendor
 
+FLEXIBLE PRICE RECOGNITION:
+- Standard format: $27,762.96 or $1,250.00
+- No-dollar format: 27,762.96 or 1,250.00 (common in lumber/material quotes)
+- Column layout: Numbers in "EXTENDED PRICE" or "TOTAL" columns
+- Final totals often show: "SUBTOTAL  TAX  TOTAL" with numbers below
+- Look for patterns like: "26,144.30  1,618.66  27,762.96" (subtotal, tax, total)
+
 FOR NARRATIVE PROPOSALS: If the quote describes multiple work phases but shows one lump sum:
 - Create line items for work phases but set individual prices to 0.0
 - Put the actual lump sum price in pricing_summary.total_amount only
