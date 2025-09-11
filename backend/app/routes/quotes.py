@@ -244,7 +244,7 @@ async def upload_division_quote(
         
         # Extract project UUID and division code
         division_code = division_id.split('-')[0]  # e.g., "04"
-        actual_division_id = division_id.split('-', 1)[1] if '-' in division_id else division_id
+        actual_division_id = project_id  # Use project_id directly for consistency
         
         quote_record = {
             "id": quote_id,
