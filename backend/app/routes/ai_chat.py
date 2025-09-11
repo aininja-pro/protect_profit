@@ -278,10 +278,10 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
     • {vendor_name}: ${total_quote:,} ({variance_pct:+.1f}% vs budget)"""
                         
                         # Add rich scope details from our enhanced parsing
-                        normalized_json = quote.get('normalized_json', {})
-                        scope_summary = normalized_json.get('scope_summary', '')
-                        exclusions = normalized_json.get('exclusions', [])
-                        assumptions = normalized_json.get('assumptions', [])
+                        normalized_json = quote.get('normalized_json') or {}
+                        scope_summary = normalized_json.get('scope_summary', '') if normalized_json else ''
+                        exclusions = normalized_json.get('exclusions', []) if normalized_json else []
+                        assumptions = normalized_json.get('assumptions', []) if normalized_json else []
                         
                         if scope_summary:
                             project_context += f"""
