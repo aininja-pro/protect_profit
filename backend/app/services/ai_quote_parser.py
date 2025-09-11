@@ -488,11 +488,11 @@ Quote says: "Base plumbing $8,850 + Sewer connection additional $850"
 CORRECT parsing:
 CRITICAL: Return ONLY valid JSON. Double-check all commas, brackets, and quotation marks.
 Example format:
-{
-  "pricing_summary": {
-    "total_amount": 27762.96
-  }
-}
+{{
+  "pricing_summary": {{
+    "total_amount": 25000.00
+  }}
+}}
 
 Return ONLY the JSON object, no additional text."""
 
