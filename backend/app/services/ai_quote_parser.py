@@ -74,6 +74,13 @@ class AIQuoteParser:
             system_prompt = self._build_quote_parsing_prompt(context)
             user_prompt = self._build_user_prompt(quote_text, context)
             
+            print(f"🚀 SENDING TO OPENAI:")
+            print(f"📝 System prompt length: {len(system_prompt)}")
+            print(f"📝 User prompt length: {len(user_prompt)}")
+            print(f"📝 Text contains '27,762.96': {'27,762.96' in user_prompt}")
+            print(f"📝 Text contains 'SUBTOTAL': {'SUBTOTAL' in user_prompt}")
+            print(f"📝 Last 200 chars: {user_prompt[-200:]}")
+            
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
