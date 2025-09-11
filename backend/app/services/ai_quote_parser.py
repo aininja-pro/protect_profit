@@ -480,10 +480,6 @@ CORRECT parsing:
 - "Sewer connection (optional add-on)": $850
 - total_amount: $8,850 (base only)
 
-INCORRECT parsing:
-- "Rough-in work": $3,000 (FABRICATED - not in quote)
-- "Fixture install": $5,850 (FABRICATED - not in quote)
-
 IMPORTANT: Return ONLY the JSON object, no additional text or explanation."""
 
     def _validate_parsed_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
