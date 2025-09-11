@@ -53,7 +53,7 @@ export default function QuoteComparisonSection({
     setLoading(true);
     try {
       const currentProjectId = projectId || 'c846ba2d-6b71-4216-b44c-964adebd6078';
-      const response = await fetch(`http://localhost:8001/api/quotes/subcategories/${division.divisionCode}/${currentProjectId}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/subcategories/${division.divisionCode}/${currentProjectId}`);
       
       if (response.ok) {
         const data = await response.json();
@@ -141,7 +141,7 @@ export default function QuoteComparisonSection({
       // Extract subcategory ID from subcategory name (e.g., "2250" from "2250 - Concrete Flatwork")
       const subcategoryId = subcategoryName.split(' -')[0].trim();
       
-      const uploadResponse = await fetch(`http://localhost:8001/api/quotes/subcategories/${subcategoryId}/upload`, {
+      const uploadResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/subcategories/${subcategoryId}/upload`, {
         method: 'POST',
         body: formData
       });
@@ -153,7 +153,7 @@ export default function QuoteComparisonSection({
       const uploadResult = await uploadResponse.json();
       
       // Parse the uploaded quote
-      const parseResponse = await fetch(`http://localhost:8001/api/quotes/${uploadResult.quote_id}/parse`, {
+      const parseResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/${uploadResult.quote_id}/parse`, {
         method: 'POST'
       });
       
@@ -182,7 +182,7 @@ export default function QuoteComparisonSection({
 
     setIsDeleting(quoteId);
     try {
-      const response = await fetch(`http://localhost:8001/api/quotes/${quoteId}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/${quoteId}`, {
         method: 'DELETE'
       });
 

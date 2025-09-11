@@ -65,14 +65,14 @@ export default function DivisionBreakdownTable({
       for (const division of divisions) {
         // Load division-level quotes (excluding subcategory-specific ones)
         const divisionId = `${division.divisionCode}-${projectId}`;
-        const divisionResponse = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/compare`);
+        const divisionResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/divisions/${divisionId}/compare`);
         if (divisionResponse.ok) {
           const divisionData = await divisionResponse.json();
           counts[`division-${division.divisionCode}`] = divisionData.vendor_quotes?.length || 0;
         }
         
         // Load subcategory quotes
-        const subcategoryResponse = await fetch(`http://localhost:8001/api/quotes/subcategories/${division.divisionCode}/${projectId}`);
+        const subcategoryResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/subcategories/${division.divisionCode}/${projectId}`);
         if (subcategoryResponse.ok) {
           const subcategoryData = await subcategoryResponse.json();
           if (subcategoryData.subcategory_quotes) {

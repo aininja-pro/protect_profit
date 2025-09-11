@@ -102,7 +102,7 @@ export default function DivisionQuoteSection({
       // Load real quotes from backend
       const divisionId = `${division.divisionCode}-${projectId}`;
       console.log(`🔍 Loading quotes for division: ${divisionId} (Division ${division.divisionCode})`);
-      const response = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/compare`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/divisions/${divisionId}/compare`);
       
       if (response.ok) {
         const data = await response.json();
@@ -168,7 +168,7 @@ export default function DivisionQuoteSection({
         quotes: divisionQuotes
       };
 
-      const response = await fetch('http://localhost:8001/api/ai/division-analysis', {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/ai/division-analysis`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -235,7 +235,7 @@ export default function DivisionQuoteSection({
     if (!confirmDelete) return;
     
     try {
-      const response = await fetch(`http://localhost:8001/api/quotes/${quote.quote_id}`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/${quote.quote_id}`, {
         method: 'DELETE'
       });
       
@@ -270,7 +270,7 @@ export default function DivisionQuoteSection({
 
       const divisionId = `${division.divisionCode}-${projectId}`;
       
-      const uploadResponse = await fetch(`http://localhost:8001/api/quotes/divisions/${divisionId}/upload`, {
+      const uploadResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/divisions/${divisionId}/upload`, {
         method: 'POST',
         body: formData
       });
@@ -283,7 +283,7 @@ export default function DivisionQuoteSection({
       console.log("🚀 REAL UPLOAD: Upload response:", uploadResult);
       
       // Step 2: Parse the uploaded quote (REAL parsing with actual file)
-      const parseResponse = await fetch(`http://localhost:8001/api/quotes/${uploadResult.quote_id}/parse`, {
+      const parseResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/${uploadResult.quote_id}/parse`, {
         method: 'POST'
       });
       
