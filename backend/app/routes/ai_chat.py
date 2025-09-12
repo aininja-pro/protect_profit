@@ -185,13 +185,19 @@ Be concise, professional, and focus on helping make the best procurement decisio
                 coverage_type = quote.get('coverageType', 'unknown')
                 scope_budget = quote.get('scopeBudget', 0)
                 scope_items = quote.get('scopeItems', 'Unknown scope')
+                matched_items = quote.get('matchedLineItems', [])
                 
-                if coverage_type == 'specific_items':
+                if coverage_type == 'specific_items' and matched_items:
+                    # Show specific line item budget mapping
                     variance_pct = ((total - scope_budget) / scope_budget * 100) if scope_budget > 0 else 0
-                    quote_analysis += f"\n- {vendor}: ${total:,} covers '{scope_items}' (${scope_budget:,} budget) = {variance_pct:+.1f}% variance"
+                    matched_budget_text = ", ".join([f"{item.get('name')}: ${item.get('budget', 0):,}" for item in matched_items])
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers {scope_items} → Mapped to: {matched_budget_text} (Total scope budget: ${scope_budget:,}) = {variance_pct:+.1f}% variance"
+                elif coverage_type == 'specific_items':
+                    variance_pct = ((total - scope_budget) / scope_budget * 100) if scope_budget > 0 else 0
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers '{scope_items}' (${scope_budget:,} scope budget) = {variance_pct:+.1f}% variance"
                 else:
                     variance_pct = ((total - context.get('totalBudget', 0)) / context.get('totalBudget', 1) * 100)
-                    quote_analysis += f"\n- {vendor}: ${total:,} covers complete division (${context.get('totalBudget', 0):,} budget) = {variance_pct:+.1f}% variance"
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers complete division (${context.get('totalBudget', 0):,} total budget) = {variance_pct:+.1f}% variance"
 
         division_context = f"""
 CURRENT CONTEXT: Division {context.get('divisionId')} - {context.get('divisionName', 'Unknown')}

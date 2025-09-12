@@ -223,14 +223,46 @@ export default function DivisionQuoteSection({
         budget: item.totalCost || item.total_cost || 0
       })) || [];
 
-      // Enhance quotes with scope mapping to line items
-      const enhancedQuotes = divisionQuotes.map((quote: any) => ({
-        ...quote,
-        scopeItems: quote.scope_type === 'specific_items' ? 
-          (quote.scope_info?.description || 'Unknown scope') : 'Complete Division',
-        scopeBudget: quote.scope_budget || division.divisionTotal,
-        coverageType: quote.scope_type || 'complete_division'
-      }));
+      // Enhance quotes with precise scope mapping to line items and budgets
+      const enhancedQuotes = divisionQuotes.map((quote: any) => {
+        if (quote.scope_type === 'specific_items' && quote.scope_info) {
+          // Extract covered item names and map to budgets
+          const coveredItemNames = quote.scope_info.description
+            .replace('Covers: ', '')
+            .split('(')[0]
+            .trim();
+          
+          // Find matching line items and their budgets
+          const matchingItems = lineItems.filter(item => 
+            coveredItemNames.toLowerCase().includes(item.name.toLowerCase()) ||
+            item.name.toLowerCase().includes(coveredItemNames.toLowerCase())
+          );
+          
+          const totalScopeBudget = matchingItems.reduce((sum, item) => sum + item.budget, 0);
+          
+          return {
+            ...quote,
+            scopeItems: coveredItemNames,
+            scopeBudget: totalScopeBudget > 0 ? totalScopeBudget : quote.scope_budget || division.divisionTotal,
+            coverageType: 'specific_items',
+            matchedLineItems: matchingItems.map(item => ({
+              name: item.name,
+              budget: item.budget
+            }))
+          };
+        } else {
+          return {
+            ...quote,
+            scopeItems: 'Complete Division',
+            scopeBudget: division.divisionTotal,
+            coverageType: 'complete_division',
+            matchedLineItems: lineItems.map(item => ({
+              name: item.name,
+              budget: item.budget
+            }))
+          };
+        }
+      });
 
       const context = {
         type: 'division',
