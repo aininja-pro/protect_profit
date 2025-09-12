@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 from pydantic import BaseModel
 import os
 from openai import OpenAI
@@ -9,6 +9,7 @@ router = APIRouter(prefix="/ai", tags=["ai-chat"])
 class ChatMessage(BaseModel):
     message: str
     context: Dict[str, Any]
+    conversation_history: Optional[List[Dict[str, str]]] = []  # Array of {role, content} messages
 
 @router.post("/chat")
 async def ai_chat(chat_request: ChatMessage):
@@ -24,21 +25,38 @@ async def ai_chat(chat_request: ChatMessage):
         # Build context-aware system prompt
         system_prompt = build_system_prompt(chat_request.context)
         
+        # Build messages array with conversation history
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history if provided
+        if chat_request.conversation_history:
+            # Keep last 10 messages to avoid token limits
+            recent_history = chat_request.conversation_history[-10:]
+            messages.extend(recent_history)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": chat_request.message})
+        
         # Call OpenAI
         client = OpenAI(api_key=openai_api_key)
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": chat_request.message}
-            ],
+            messages=messages,
             max_tokens=500,
             temperature=0.3
         )
         
+        ai_response = response.choices[0].message.content
+        
+        # Build updated conversation history
+        updated_history = list(chat_request.conversation_history) if chat_request.conversation_history else []
+        updated_history.append({"role": "user", "content": chat_request.message})
+        updated_history.append({"role": "assistant", "content": ai_response})
+        
         return {
-            "ai_response": response.choices[0].message.content,
+            "ai_response": ai_response,
             "context_used": chat_request.context,
+            "conversation_history": updated_history,
             "openai_used": True
         }
         
@@ -126,23 +144,41 @@ async def ai_project_analysis(chat_request: ChatMessage):
             logger.error(f"Context content: {chat_request.context}")
             raise prompt_error
         
+        # Build messages array with conversation history
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history if provided
+        if chat_request.conversation_history:
+            # Keep last 8 messages to avoid token limits (fewer for project analysis due to larger context)
+            recent_history = chat_request.conversation_history[-8:]
+            messages.extend(recent_history)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": chat_request.message})
+
         # Call OpenAI with enhanced context
         logger.info("Calling OpenAI API...")
         client = OpenAI(api_key=openai_api_key)
         response = client.chat.completions.create(
             model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": chat_request.message}
-            ],
+            messages=messages,
             max_tokens=800,
             temperature=0.2  # Lower temperature for more consistent analysis
         )
         
         logger.info("OpenAI API call successful")
+        
+        ai_response = response.choices[0].message.content
+        
+        # Build updated conversation history
+        updated_history = list(chat_request.conversation_history) if chat_request.conversation_history else []
+        updated_history.append({"role": "user", "content": chat_request.message})
+        updated_history.append({"role": "assistant", "content": ai_response})
+        
         return {
-            "ai_response": response.choices[0].message.content,
+            "ai_response": ai_response,
             "context_used": chat_request.context,
+            "conversation_history": updated_history,
             "openai_used": True
         }
         

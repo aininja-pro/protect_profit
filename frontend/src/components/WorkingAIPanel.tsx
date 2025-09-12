@@ -35,6 +35,7 @@ export default function WorkingAIPanel({
   const [loadedQuoteData, setLoadedQuoteData] = useState<any>(null);
   const [contextLoading, setContextLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState('');
+  const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
 
   useEffect(() => {
     if (isOpen && !contextLoaded) {
@@ -198,6 +199,7 @@ export default function WorkingAIPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: currentInput,
+          conversation_history: conversationHistory,
           context: {
             type: 'project_analysis',
             projectId: projectId || '',
@@ -212,14 +214,28 @@ export default function WorkingAIPanel({
       
       const data = await response.json();
       
+      const aiResponseContent = data.ai_response || 'I understand your question. Let me analyze your project data.';
+      
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: 'ai',
-        content: data.ai_response || 'I understand your question. Let me analyze your project data.',
+        content: aiResponseContent,
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, aiResponse]);
+      
+      // Update conversation history if provided by backend
+      if (data.conversation_history) {
+        setConversationHistory(data.conversation_history);
+      } else {
+        // Fallback: manually update conversation history
+        setConversationHistory(prev => [
+          ...prev,
+          { role: 'user', content: currentInput },
+          { role: 'assistant', content: aiResponseContent }
+        ]);
+      }
     } catch (error) {
       console.error('AI error details:', error);
       console.error('Request context:', {
