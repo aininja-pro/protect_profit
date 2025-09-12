@@ -466,6 +466,7 @@ Quotes received:"""
         base_prompt += f"""
 - {vendor_name}: ${total_price:,} ({variance_pct:+}% vs budget), {timeline}{scope_info}"""
     
+    base_prompt += """
 
 Write 2-3 sentences summarizing budget performance and key insights. Mention vendor names, savings/overages, and any important notes."""
     
