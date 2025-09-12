@@ -448,6 +448,94 @@ async def list_quotes(project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching quotes: {str(e)}")
 
+@router.get("/debug/division/{division_code}/{project_id}")
+async def debug_division_quotes(division_code: str, project_id: str):
+    """Debug endpoint to see all quotes for a division with detailed info"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get all quotes for this division (both division and subcategory)
+        all_quotes = supabase.table("vendor_quotes")\
+            .select("id, vendor_name, status, division_code, subcategory_id, normalized_json, scope_type, scope_budget_total, created_at")\
+            .eq("project_id", project_id)\
+            .eq("division_code", division_code)\
+            .order("created_at", desc=True)\
+            .execute()
+        
+        # Separate division vs subcategory quotes
+        division_quotes = [q for q in all_quotes.data if not q.get("subcategory_id")]
+        subcategory_quotes = [q for q in all_quotes.data if q.get("subcategory_id")]
+        
+        # Extract totals for analysis
+        quote_totals = []
+        for quote in all_quotes.data:
+            total = 0
+            if quote.get("normalized_json") and quote["normalized_json"].get("pricing_summary"):
+                total = quote["normalized_json"]["pricing_summary"].get("total_amount", 0)
+            quote_totals.append({
+                "id": quote["id"],
+                "vendor": quote["vendor_name"],
+                "total": total,
+                "status": quote["status"],
+                "type": "division" if not quote.get("subcategory_id") else "subcategory"
+            })
+        
+        return {
+            "division_code": division_code,
+            "project_id": project_id,
+            "total_quotes": len(all_quotes.data),
+            "division_quotes_count": len(division_quotes),
+            "subcategory_quotes_count": len(subcategory_quotes),
+            "quote_breakdown": quote_totals,
+            "division_quotes": division_quotes,
+            "subcategory_quotes": subcategory_quotes
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Debug error: {str(e)}")
+
+@router.delete("/cleanup/division/{division_code}/{project_id}")
+async def cleanup_division_quotes(division_code: str, project_id: str):
+    """Clean up quotes with zero totals or failed parsing"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get all quotes for this division
+        all_quotes = supabase.table("vendor_quotes")\
+            .select("id, vendor_name, normalized_json")\
+            .eq("project_id", project_id)\
+            .eq("division_code", division_code)\
+            .execute()
+        
+        quotes_to_delete = []
+        for quote in all_quotes.data:
+            total = 0
+            if quote.get("normalized_json") and quote["normalized_json"].get("pricing_summary"):
+                total = quote["normalized_json"]["pricing_summary"].get("total_amount", 0)
+            
+            # Mark for deletion if no valid total
+            if total <= 0:
+                quotes_to_delete.append(quote["id"])
+        
+        # Delete the problematic quotes
+        deleted_count = 0
+        for quote_id in quotes_to_delete:
+            # Delete associated line items first
+            supabase.table("quote_line_items").delete().eq("quote_id", quote_id).execute()
+            # Delete the quote
+            supabase.table("vendor_quotes").delete().eq("id", quote_id).execute()
+            deleted_count += 1
+        
+        return {
+            "message": f"Cleaned up {deleted_count} invalid quotes",
+            "division_code": division_code,
+            "deleted_quote_ids": quotes_to_delete,
+            "remaining_quotes": len(all_quotes.data) - deleted_count
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Cleanup error: {str(e)}")
+
 @router.post("/{quote_id}/parse")
 async def parse_quote(quote_id: str = Path(...)):
     """Extract and normalize quote data using AI"""
