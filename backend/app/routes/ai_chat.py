@@ -54,6 +54,13 @@ async def ai_chat(chat_request: ChatMessage):
 async def ai_division_analysis(chat_request: ChatMessage):
     """Generate quick division-specific insights for quote comparison"""
     try:
+        # Debug what context we're actually receiving
+        context = chat_request.context
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: Received context keys: {list(context.keys())}")
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: lineItems: {context.get('lineItems', 'NOT_FOUND')}")
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: totalBudget: {context.get('totalBudget', 'NOT_FOUND')}")
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: quotes count: {len(context.get('quotes', []))}")
+        
         openai_api_key = os.getenv('OPENAI_API_KEY')
         if not openai_api_key:
             return {
