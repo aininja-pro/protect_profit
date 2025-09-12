@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import QuoteScopeModal from './QuoteScopeModal';
-import QuoteComparisonSection from './QuoteComparisonSection';
 import DivisionQuoteSection from './DivisionQuoteSection';
 
 interface DivisionItem {
@@ -206,13 +205,7 @@ export default function DivisionBreakdownTable({
           {/* Collapsible Division Content */}
           {expandedDivisions.has(division.divisionCode) && (
             <>
-              {/* Division-Level Quote Management */}
-              <DivisionQuoteSection 
-                division={division}
-                projectId={projectId}
-              />
-              
-              {/* Division Items - Grouped by Subcategory */}
+              {/* Division Items - Grouped by Subcategory (moved to top) */}
               {division.items && division.items.length > 0 && (
             <div className="ml-6 mt-4 space-y-4">
               {(() => {
@@ -296,12 +289,7 @@ export default function DivisionBreakdownTable({
                             ))}
                           </div>
                           
-                          {/* Quote Comparison Section - MOVED DOWN */}
-                          <QuoteComparisonSection 
-                            subcategoryName={subcategoryName}
-                            division={division}
-                            projectId={projectId}
-                          />
+                          {/* Subcategory quotes section removed - now handled by unified quote section */}
                         </div>
                       );
                     })}
@@ -324,6 +312,12 @@ export default function DivisionBreakdownTable({
               })()}
             </div>
               )}
+              
+              {/* Quotes Section (moved after scope breakdown) */}
+              <DivisionQuoteSection 
+                division={division}
+                projectId={projectId}
+              />
             </>
           )}
         </div>

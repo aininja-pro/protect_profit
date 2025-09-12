@@ -435,7 +435,7 @@ export default function DivisionQuoteSection({
         className="flex items-center justify-between w-full p-3 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">🏗️ Division-Level Quotes</span>
+          <span className="text-sm font-medium">💼 Quotes</span>
           <span className={`text-xs ${quoteStatus.color}`}>
             {quoteStatus.text}
           </span>
