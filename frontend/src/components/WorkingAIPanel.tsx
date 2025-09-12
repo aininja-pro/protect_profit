@@ -33,6 +33,8 @@ export default function WorkingAIPanel({
   const [isLoading, setIsLoading] = useState(false);
   const [contextLoaded, setContextLoaded] = useState(false);
   const [loadedQuoteData, setLoadedQuoteData] = useState<any>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState('');
 
   useEffect(() => {
     if (isOpen && !contextLoaded) {
@@ -42,6 +44,8 @@ export default function WorkingAIPanel({
 
   const loadQuoteContext = async () => {
     console.log('🔍 Loading quote context for project:', projectId);
+    setContextLoading(true);
+    setLoadingProgress('Initializing quote analysis...');
     
     let totalDivisionQuotes = 0;
     let totalSubcategoryQuotes = 0;
@@ -49,8 +53,11 @@ export default function WorkingAIPanel({
     const divisionComparisons: any[] = [];
 
     // Load quotes for each division
-    for (const division of divisions) {
+    for (let i = 0; i < divisions.length; i++) {
+      const division = divisions[i];
       const divisionId = `${division.divisionCode}-${projectId}`;
+      
+      setLoadingProgress(`Loading quotes for Division ${division.divisionCode} - ${division.divisionName} (${i + 1}/${divisions.length})...`);
       
       let divisionQuotes: any[] = [];
       let subcategoryQuotes: any[] = [];
@@ -130,6 +137,8 @@ export default function WorkingAIPanel({
       welcomeMessage += `No quotes found yet. I can help with procurement strategy and vendor recommendations.`;
     }
 
+    setLoadingProgress('Finalizing analysis...');
+    
     setMessages([{
       id: 'welcome',
       role: 'ai',
@@ -138,6 +147,8 @@ export default function WorkingAIPanel({
     }]);
 
     setContextLoaded(true);
+    setContextLoading(false);
+    setLoadingProgress('');
   };
 
   const sendMessage = async () => {
@@ -244,6 +255,20 @@ export default function WorkingAIPanel({
             </div>
           ))}
           
+          {contextLoading && (
+            <div className="flex justify-start">
+              <div className="bg-blue-50 text-blue-800 p-3 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  <div>
+                    <div className="font-medium">Loading project analysis...</div>
+                    <div className="text-xs text-blue-600 mt-1">{loadingProgress}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-100 text-gray-800 p-3 rounded-lg">
@@ -263,6 +288,9 @@ export default function WorkingAIPanel({
               onClick={() => {
                 setMessages([]);
                 setInputMessage('');
+                setContextLoaded(false);
+                setContextLoading(false);
+                setLoadingProgress('');
                 loadQuoteContext();
               }}
               className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
