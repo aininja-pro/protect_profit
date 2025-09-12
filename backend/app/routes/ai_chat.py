@@ -56,10 +56,10 @@ async def ai_division_analysis(chat_request: ChatMessage):
     try:
         # Debug what context we're actually receiving
         context = chat_request.context
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: Received context keys: {list(context.keys())}")
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: lineItems: {context.get('lineItems', 'NOT_FOUND')}")
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: totalBudget: {context.get('totalBudget', 'NOT_FOUND')}")
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: quotes count: {len(context.get('quotes', []))}")
+        print(f"DIVISION_ANALYSIS_DEBUG: Received context keys: {list(context.keys())}")
+        print(f"DIVISION_ANALYSIS_DEBUG: lineItems: {context.get('lineItems', 'NOT_FOUND')}")
+        print(f"DIVISION_ANALYSIS_DEBUG: totalBudget: {context.get('totalBudget', 'NOT_FOUND')}")
+        print(f"DIVISION_ANALYSIS_DEBUG: quotes count: {len(context.get('quotes', []))}")
         
         openai_api_key = os.getenv('OPENAI_API_KEY')
         if not openai_api_key:
@@ -70,8 +70,8 @@ async def ai_division_analysis(chat_request: ChatMessage):
         
         # Build division-specific analysis prompt
         system_prompt = build_division_analysis_prompt(chat_request.context)
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: System prompt length: {len(system_prompt)}")
-        print(f"🔍 DIVISION_ANALYSIS_DEBUG: System prompt preview: {system_prompt[:500]}...")
+        print(f"DIVISION_ANALYSIS_DEBUG: System prompt length: {len(system_prompt)}")
+        print(f"DIVISION_ANALYSIS_DEBUG: System prompt preview: {system_prompt[:500]}...")
         
         # Call OpenAI for quick insights
         client = OpenAI(api_key=openai_api_key)
@@ -175,7 +175,7 @@ Be concise, professional, and focus on helping make the best procurement decisio
     if context_type == 'division':
         # Build dynamic line item budget breakdown
         line_items = context.get('lineItems', [])
-        print(f"🔍 AI_CONTEXT_DEBUG: Division {context.get('divisionId')} lineItems: {line_items}")
+        print(f"AI_CONTEXT_DEBUG: Division {context.get('divisionId')} lineItems: {line_items}")
         line_items_text = ""
         if line_items:
             line_items_text = "\n\nBUDGET LINE ITEMS BREAKDOWN:"
@@ -186,9 +186,9 @@ Be concise, professional, and focus on helping make the best procurement decisio
         
         # Analyze quote coverage and scope
         quotes = context.get('quotes', [])
-        print(f"🔍 AI_CONTEXT_DEBUG: Division {context.get('divisionId')} quotes: {len(quotes)} quotes")
+        print(f"AI_CONTEXT_DEBUG: Division {context.get('divisionId')} quotes: {len(quotes)} quotes")
         for i, q in enumerate(quotes[:2]):  # Debug first 2 quotes
-            print(f"🔍 AI_CONTEXT_DEBUG: Quote {i+1}: vendor={q.get('vendor_name')}, scopeBudget={q.get('scopeBudget')}, coverageType={q.get('coverageType')}")
+            print(f"AI_CONTEXT_DEBUG: Quote {i+1}: vendor={q.get('vendor_name')}, scopeBudget={q.get('scopeBudget')}, coverageType={q.get('coverageType')}")
         quote_analysis = ""
         if quotes:
             quote_analysis = "\n\nQUOTE SCOPE ANALYSIS:"
@@ -299,7 +299,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
 
     # Add detailed comparison data if available
     division_comparisons = project_data.get('divisionComparisons', []) or []
-    print(f"🔍 PROJECT_ANALYSIS_DEBUG: Found {len(division_comparisons)} division comparisons")
+    print(f"PROJECT_ANALYSIS_DEBUG: Found {len(division_comparisons)} division comparisons")
     if division_comparisons:
         project_context += "\n\n**DETAILED QUOTE ANALYSIS:**"
         
@@ -309,7 +309,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
             div_name = comp.get('divisionName')
             budget = comp.get('totalBudget', comp.get('budget', 0))
             line_items = comp.get('lineItems', []) or []
-            print(f"🔍 PROJECT_ANALYSIS_DEBUG: Division {div_code} - Budget: ${budget:,}, LineItems: {len(line_items)}")
+            print(f"PROJECT_ANALYSIS_DEBUG: Division {div_code} - Budget: ${budget:,}, LineItems: {len(line_items)}")
             quotes = comp.get('quotes', []) or []
             division_quotes = comp.get('divisionQuotes', []) or []
             subcategory_quotes = comp.get('subcategoryQuotes', []) or []
@@ -504,7 +504,7 @@ def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
         
         response = f"""**Vendor & Pricing Analysis for {project_name}**
 
-📊 **Current Status:**
+**Current Status:**
 • Total Project Budget: ${total_budget:,}
 • Quotes Received: {total_quotes} across {divisions_with_quotes} divisions
 • Divisions: {len(divisions)} total
@@ -521,7 +521,7 @@ def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
             response += f"""
 • **Division {div_code} - {div_name}**: ${div_budget:,} budget, {quote_count} quotes"""
 
-        response += """\n\n🤖 **AI Analysis Currently Unavailable**
+        response += """\n\n**AI Analysis Currently Unavailable**
 The detailed AI analysis service is temporarily offline, but you have access to all project data. Try your question again in a moment for comprehensive vendor comparisons and recommendations."""
         
         return response
@@ -530,7 +530,7 @@ The detailed AI analysis service is temporarily offline, but you have access to 
     elif any(word in message_lower for word in ['budget', 'variance', 'over', 'under', 'risk']):
         response = f"""**Budget Analysis for {project_name}**
 
-💰 **Budget Overview:**
+**Budget Overview:**
 • Project Subtotal: ${context.get('projectTotals', {}).get('projectSubtotal', 0):,}
 • Overhead & Profit: ${context.get('projectTotals', {}).get('overheadAndProfit', 0):,}
 • **Total Budget: ${total_budget:,}**
@@ -541,7 +541,7 @@ The detailed AI analysis service is temporarily offline, but you have access to 
         
         if divisions_without_quotes > 0:
             response += f"""
-⚠️ **High Risk**: {divisions_without_quotes} divisions still need quotes
+**High Risk**: {divisions_without_quotes} divisions still need quotes
 """
         
         for division in divisions:
@@ -552,12 +552,12 @@ The detailed AI analysis service is temporarily offline, but you have access to 
             
             if quote_count == 0:
                 response += f"""
-• Division {div_code} ({div_name}): ${div_budget:,} - **NO QUOTES** ❌"""
+• Division {div_code} ({div_name}): ${div_budget:,} - **NO QUOTES**"""
             else:
                 response += f"""
-• Division {div_code} ({div_name}): ${div_budget:,} - {quote_count} quotes ✅"""
+• Division {div_code} ({div_name}): ${div_budget:,} - {quote_count} quotes"""
 
-        response += """\n\n🤖 **Detailed Analysis Pending**
+        response += """\n\n**Detailed Analysis Pending**
 AI service reconnecting... Try again shortly for variance analysis and specific risk recommendations."""
         
         return response
@@ -566,7 +566,7 @@ AI service reconnecting... Try again shortly for variance analysis and specific 
     elif any(word in message_lower for word in ['award', 'recommend', 'strategy', 'decision', 'select']):
         response = f"""**Award Strategy for {project_name}**
 
-🎯 **Procurement Status:**"""
+**Procurement Status:**"""
         
         ready_for_award = []
         need_quotes = []
@@ -584,7 +584,7 @@ AI service reconnecting... Try again shortly for variance analysis and specific 
         if ready_for_award:
             response += f"""
 
-✅ **Ready for Award Decision:**
+**Ready for Award Decision:**
 {chr(10).join(f"• {item}" for item in ready_for_award)}"""
         
         if need_quotes:
@@ -595,12 +595,12 @@ AI service reconnecting... Try again shortly for variance analysis and specific 
 
         response += f"""
 
-📋 **Next Steps:**
+**Next Steps:**
 1. Complete quote collection for remaining divisions
 2. Perform detailed vendor analysis and comparison
 3. Execute award strategy based on value optimization
 
-🤖 **AI Recommendations Coming Soon**
+**AI Recommendations Coming Soon**
 The AI service will provide specific award strategies when reconnected."""
         
         return response
@@ -614,7 +614,7 @@ The AI service will provide specific award strategies when reconnected."""
 • Quotes: {total_quotes} total received
 • Status: Ready for comprehensive analysis
 
-🤖 **AI Analysis Service Reconnecting**
+**AI Analysis Service Reconnecting**
 I have access to all your project data including budgets, quotes, vendor comparisons, and line-item details. Please try your question again in a moment for detailed insights and recommendations.
 
 **Quick Questions I Can Help With:**
