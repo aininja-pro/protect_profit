@@ -80,13 +80,30 @@ export default function WorkingAIPanel({
           divisionSummary.push(`Division ${division.divisionCode} - ${division.divisionName}: ${totalForDivision} quotes (${divisionQuotes.length} division, ${subcategoryQuotes.length} subcategory)`);
         }
 
-        // Store the actual quote data for AI context
+        // Build dynamic budget line item structure for this division
+        const lineItems = division.items?.map((item: any) => ({
+          lineId: item.lineId || `${division.divisionCode}-${item.description?.toLowerCase().replace(/\s+/g, '-')}`,
+          name: item.tradeDescription || item.description || 'Unknown Item',
+          budget: item.totalCost || item.total_cost || 0
+        })) || [];
+
+        // Enhance quotes with scope information
+        const enhancedDivisionQuotes = divisionQuotes.map((quote: any) => ({
+          ...quote,
+          scopeItems: quote.scope_type === 'specific_items' ? 
+            (quote.scope_items || ['Unknown scope items']) : 'Complete Division',
+          scopeBudget: quote.scope_budget_total || division.divisionTotal,
+          coverageType: quote.scope_type || 'complete_division'
+        }));
+
+        // Store the enhanced quote data for AI context
         divisionComparisons.push({
           divisionCode: division.divisionCode,
           divisionName: division.divisionName,
-          budget: division.divisionTotal,
-          quotes: [...divisionQuotes, ...subcategoryQuotes],
-          divisionQuotes: divisionQuotes,
+          totalBudget: division.divisionTotal,
+          lineItems: lineItems,
+          quotes: [...enhancedDivisionQuotes, ...subcategoryQuotes],
+          divisionQuotes: enhancedDivisionQuotes,
           subcategoryQuotes: subcategoryQuotes
         });
 
@@ -94,11 +111,18 @@ export default function WorkingAIPanel({
       } catch (error) {
         console.log(`❌ Error loading quotes for division ${division.divisionCode}:`, error);
         
-        // Still add empty entry
+        // Still add empty entry with enhanced structure
+        const lineItems = division.items?.map((item: any) => ({
+          lineId: item.lineId || `${division.divisionCode}-${item.description?.toLowerCase().replace(/\s+/g, '-')}`,
+          name: item.tradeDescription || item.description || 'Unknown Item',
+          budget: item.totalCost || item.total_cost || 0
+        })) || [];
+
         divisionComparisons.push({
           divisionCode: division.divisionCode,
           divisionName: division.divisionName,
-          budget: division.divisionTotal,
+          totalBudget: division.divisionTotal,
+          lineItems: lineItems,
           quotes: [],
           divisionQuotes: [],
           subcategoryQuotes: []

@@ -216,12 +216,29 @@ export default function DivisionQuoteSection({
 
     setAnalysisLoading(true);
     try {
+      // Build dynamic budget line item structure
+      const lineItems = division.items?.map((item: any) => ({
+        lineId: item.lineId || `${division.divisionCode}-${item.description?.toLowerCase().replace(/\s+/g, '-')}`,
+        name: item.tradeDescription || item.description || 'Unknown Item',
+        budget: item.totalCost || item.total_cost || 0
+      })) || [];
+
+      // Enhance quotes with scope mapping to line items
+      const enhancedQuotes = divisionQuotes.map((quote: any) => ({
+        ...quote,
+        scopeItems: quote.scope_type === 'specific_items' ? 
+          (quote.scope_info?.description || 'Unknown scope') : 'Complete Division',
+        scopeBudget: quote.scope_budget || division.divisionTotal,
+        coverageType: quote.scope_type || 'complete_division'
+      }));
+
       const context = {
         type: 'division',
         divisionId: division.divisionCode,
         divisionName: division.divisionName,
-        budget: division.divisionTotal,
-        quotes: divisionQuotes
+        totalBudget: division.divisionTotal,
+        lineItems: lineItems,
+        quotes: enhancedQuotes
       };
 
       const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/ai/division-analysis`, {

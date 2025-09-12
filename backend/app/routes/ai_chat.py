@@ -164,13 +164,43 @@ Be concise, professional, and focus on helping make the best procurement decisio
     context_type = context.get('type', 'project')
     
     if context_type == 'division':
+        # Build dynamic line item budget breakdown
+        line_items = context.get('lineItems', [])
+        line_items_text = ""
+        if line_items:
+            line_items_text = "\n\nBUDGET LINE ITEMS BREAKDOWN:"
+            for item in line_items:
+                item_name = item.get('name', 'Unknown')
+                item_budget = item.get('budget', 0)
+                line_items_text += f"\n- {item_name}: ${item_budget:,}"
+        
+        # Analyze quote coverage and scope
+        quotes = context.get('quotes', [])
+        quote_analysis = ""
+        if quotes:
+            quote_analysis = "\n\nQUOTE SCOPE ANALYSIS:"
+            for quote in quotes:
+                vendor = quote.get('vendor_name', 'Unknown')
+                total = quote.get('total_price', 0)
+                coverage_type = quote.get('coverageType', 'unknown')
+                scope_budget = quote.get('scopeBudget', 0)
+                scope_items = quote.get('scopeItems', 'Unknown scope')
+                
+                if coverage_type == 'specific_items':
+                    variance_pct = ((total - scope_budget) / scope_budget * 100) if scope_budget > 0 else 0
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers '{scope_items}' (${scope_budget:,} budget) = {variance_pct:+.1f}% variance"
+                else:
+                    variance_pct = ((total - context.get('totalBudget', 0)) / context.get('totalBudget', 1) * 100)
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers complete division (${context.get('totalBudget', 0):,} budget) = {variance_pct:+.1f}% variance"
+
         division_context = f"""
 CURRENT CONTEXT: Division {context.get('divisionId')} - {context.get('divisionName', 'Unknown')}
-Budget: ${context.get('budget', 0):,}
-Division Quotes: {len(context.get('quotes', []))} received
-Project ID: {context.get('projectId')}
+Total Division Budget: ${context.get('totalBudget', 0):,}
+Division Quotes: {len(quotes)} received{line_items_text}{quote_analysis}
 
-You have access to all division-level quotes, budget data, and can provide award strategy recommendations for this specific division.
+IMPORTANT: When analyzing quotes, use the scope budget for variance calculations, not the total division budget. For partial scope quotes, compare against the specific line item budget, not the full division budget.
+
+You have access to detailed budget breakdowns, quote scope information, and can provide precise award strategy recommendations.
 """
         return base_prompt + division_context
         
