@@ -536,6 +536,57 @@ async def cleanup_division_quotes(division_code: str, project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cleanup error: {str(e)}")
 
+@router.post("/convert/division/{division_code}/{project_id}")
+async def convert_subcategory_to_division_quotes(division_code: str, project_id: str):
+    """Convert subcategory quotes to division-level quotes for unified display"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get all subcategory quotes for this division
+        subcategory_quotes = supabase.table("vendor_quotes")\
+            .select("id, vendor_name, subcategory_id, normalized_json")\
+            .eq("project_id", project_id)\
+            .eq("division_code", division_code)\
+            .not_.is_("subcategory_id", "null")\
+            .execute()
+        
+        converted_count = 0
+        conversions = []
+        
+        for quote in subcategory_quotes.data:
+            # Check if quote has valid total
+            total = 0
+            if quote.get("normalized_json") and quote["normalized_json"].get("pricing_summary"):
+                total = quote["normalized_json"]["pricing_summary"].get("total_amount", 0)
+            
+            if total > 0:
+                # Convert to division quote by removing subcategory_id and setting scope
+                update_data = {
+                    "subcategory_id": None,
+                    "scope_type": "specific_items",
+                    "scope_budget_total": total,  # Use quote total as scope budget for now
+                    "scope_notes": f"Converted from subcategory {quote['subcategory_id']} quote"
+                }
+                
+                supabase.table("vendor_quotes").update(update_data).eq("id", quote["id"]).execute()
+                
+                conversions.append({
+                    "quote_id": quote["id"],
+                    "vendor_name": quote["vendor_name"],
+                    "old_subcategory": quote["subcategory_id"],
+                    "total": total
+                })
+                converted_count += 1
+        
+        return {
+            "message": f"Converted {converted_count} subcategory quotes to division quotes",
+            "division_code": division_code,
+            "conversions": conversions
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Conversion error: {str(e)}")
+
 @router.patch("/{quote_id}/vendor-name")
 async def update_vendor_name(quote_id: str = Path(...), request: Dict[str, Any] = {}):
     """Update vendor name for a quote"""
