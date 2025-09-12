@@ -394,41 +394,73 @@ def build_division_analysis_prompt(context: Dict[str, Any]) -> str:
     
     division_id = context.get('divisionId', '')
     division_name = context.get('divisionName', 'Unknown Division')
-    budget = context.get('budget', 0)
+    total_budget = context.get('totalBudget', 0)  # Use enhanced context
+    line_items = context.get('lineItems', [])     # Get line item structure
     quotes = context.get('quotes', [])
     
+    # Build line items breakdown with percentages for strategic context
+    line_items_text = ""
+    if line_items:
+        line_items_text = "\n\nBUDGET LINE ITEMS BREAKDOWN:"
+        for item in line_items:
+            item_name = item.get('name', 'Unknown')
+            item_budget = item.get('budget', 0)
+            percentage = (item_budget / total_budget * 100) if total_budget > 0 else 0
+            line_items_text += f"\n- {item_name}: ${item_budget:,} ({percentage:.1f}% of division budget)"
+
     base_prompt = f"""You are a construction procurement specialist analyzing quotes for {division_name} work.
 
 DIVISION CONTEXT:
-- Budget: ${budget:,}
-- Quotes Received: {len(quotes)}
+- Total Division Budget: ${total_budget:,}
+- Quotes Received: {len(quotes)}{line_items_text}
 
 QUOTES TO ANALYZE:"""
     
-    # Add each quote with rich details from our enhanced parsing
+    # Add each quote with scope-aware budget analysis
     for quote in quotes:
         vendor_name = quote.get('vendor_name', 'Unknown')
         total_price = quote.get('total_price', 0)
-        variance_pct = round((((total_price or 0) - (budget or 0)) / (budget or 1) * 100)) if budget and budget > 0 else 0
+        coverage_type = quote.get('coverageType', 'complete_division')
+        scope_budget = quote.get('scopeBudget', total_budget)
+        scope_items = quote.get('scopeItems', 'Complete Division')
+        matched_items = quote.get('matchedLineItems', [])
+        
+        # Calculate variance against appropriate budget
+        if coverage_type == 'specific_items' and scope_budget > 0:
+            variance_pct = round((((total_price or 0) - scope_budget) / scope_budget * 100))
+            budget_context = f"${scope_budget:,} scope budget"
+        else:
+            variance_pct = round((((total_price or 0) - total_budget) / total_budget * 100)) if total_budget > 0 else 0
+            budget_context = f"${total_budget:,} division budget"
+        
         timeline = quote.get('timeline', '4 weeks')
-        notes = quote.get('notes', '')  # This contains our rich scope summary
+        notes = quote.get('notes', '')
+        
+        # Enhanced scope display
+        scope_info = ""
+        if coverage_type == 'specific_items' and matched_items:
+            matched_budget_text = ", ".join([f"{item.get('name')}: ${item.get('budget', 0):,}" for item in matched_items])
+            scope_info = f"\n  Covers: {scope_items} (Mapped to: {matched_budget_text})"
+        elif coverage_type == 'specific_items':
+            scope_info = f"\n  Covers: {scope_items}"
         
         base_prompt += f"""
 
-• {vendor_name}: ${total_price:,} ({variance_pct:+}% vs budget)
-  Timeline: {timeline}
-  Scope: {notes[:150]}{'...' if len(notes) > 150 else ''}"""
+• {vendor_name}: ${total_price:,} ({variance_pct:+}% vs {budget_context})
+  Timeline: {timeline}{scope_info}
+  Details: {notes[:100]}{'...' if len(notes) > 100 else ''}"""
     
     base_prompt += """
 
 ANALYSIS REQUIREMENTS:
-- Provide 1-2 sentences of strategic insight
-- Focus on key differentiators (service levels, scope, value)
-- Mention specific vendor names and key numbers
-- Give clear recommendation or next step
-- Be concise and actionable for quick decision-making
+- CRITICAL: Use the specific scope budget shown in each quote analysis above, NOT the total division budget
+- For quotes covering specific items, compare against the line item budget (e.g., Truss Package: $14,000)
+- For complete division quotes, compare against the total division budget ($82,500)
+- Provide strategic insight focusing on scope coverage and budget performance
+- Mention specific vendor names, scope items, and accurate variance percentages
+- Give clear recommendations based on scope-specific value
 
-Example: "SHO's $89K reflects premium 400A service vs Firefly's $26K basic 200A. Choose Firefly for budget or SHO for future-proofing."
+Example: "DOT's Truss Package quote ($13,075) is 7% under the $14,000 Truss budget, saving $925. Still need quotes for Framing Install ($35,000) and Lumber Pack ($33,500)."
 """
     
     return base_prompt
