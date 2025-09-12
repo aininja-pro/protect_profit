@@ -430,13 +430,10 @@ def build_division_analysis_prompt(context: Dict[str, Any]) -> str:
             percentage = (item_budget / total_budget * 100) if total_budget > 0 else 0
             line_items_text += f"\n- {item_name}: ${item_budget:,} ({percentage:.1f}% of division budget)"
 
-    base_prompt = f"""You are a construction procurement specialist analyzing quotes for {division_name} work.
+    base_prompt = f"""Write a brief narrative summary of {division_name} quotes for project stakeholders.
 
-DIVISION CONTEXT:
-- Total Division Budget: ${total_budget:,}
-- Quotes Received: {len(quotes)}{line_items_text}
-
-QUOTES TO ANALYZE:"""
+Budget: ${total_budget:,}
+Quotes received:"""
     
     # Add each quote with scope-aware budget analysis
     for quote in quotes:
@@ -467,23 +464,10 @@ QUOTES TO ANALYZE:"""
             scope_info = f"\n  Covers: {scope_items}"
         
         base_prompt += f"""
-
-• {vendor_name}: ${total_price:,} ({variance_pct:+}% vs {budget_context})
-  Timeline: {timeline}{scope_info}
-  Details: {notes[:100]}{'...' if len(notes) > 100 else ''}"""
+- {vendor_name}: ${total_price:,} ({variance_pct:+}% vs budget), {timeline}{scope_info}"""
     
-    base_prompt += """
 
-ANALYSIS REQUIREMENTS:
-- CRITICAL: Use the specific scope budget shown in each quote analysis above, NOT the total division budget
-- For quotes covering specific items, compare against the line item budget (e.g., Truss Package: $14,000)
-- For complete division quotes, compare against the total division budget ($82,500)
-- Provide strategic insight focusing on scope coverage and budget performance
-- Mention specific vendor names, scope items, and accurate variance percentages
-- Give clear recommendations based on scope-specific value
-
-Example: "DOT's Truss Package quote ($13,075) is 7% under the $14,000 Truss budget, saving $925. Still need quotes for Framing Install ($35,000) and Lumber Pack ($33,500)."
-"""
+Write 2-3 sentences summarizing budget performance and key insights. Mention vendor names, savings/overages, and any important notes."""
     
     return base_prompt
 
