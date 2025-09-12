@@ -233,19 +233,19 @@ export default function DivisionQuoteSection({
             .trim();
           
           // Find matching line items and their budgets
-          const matchingItems = lineItems.filter(item => 
+          const matchingItems = lineItems.filter((item: any) => 
             coveredItemNames.toLowerCase().includes(item.name.toLowerCase()) ||
             item.name.toLowerCase().includes(coveredItemNames.toLowerCase())
           );
           
-          const totalScopeBudget = matchingItems.reduce((sum, item) => sum + item.budget, 0);
+          const totalScopeBudget = matchingItems.reduce((sum: number, item: any) => sum + item.budget, 0);
           
           return {
             ...quote,
             scopeItems: coveredItemNames,
             scopeBudget: totalScopeBudget > 0 ? totalScopeBudget : quote.scope_budget || division.divisionTotal,
             coverageType: 'specific_items',
-            matchedLineItems: matchingItems.map(item => ({
+            matchedLineItems: matchingItems.map((item: any) => ({
               name: item.name,
               budget: item.budget
             }))
@@ -256,7 +256,7 @@ export default function DivisionQuoteSection({
             scopeItems: 'Complete Division',
             scopeBudget: division.divisionTotal,
             coverageType: 'complete_division',
-            matchedLineItems: lineItems.map(item => ({
+            matchedLineItems: lineItems.map((item: any) => ({
               name: item.name,
               budget: item.budget
             }))
