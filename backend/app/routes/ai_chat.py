@@ -299,6 +299,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
 
     # Add detailed comparison data if available
     division_comparisons = project_data.get('divisionComparisons', []) or []
+    print(f"🔍 PROJECT_ANALYSIS_DEBUG: Found {len(division_comparisons)} division comparisons")
     if division_comparisons:
         project_context += "\n\n**DETAILED QUOTE ANALYSIS:**"
         
@@ -306,13 +307,25 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
             comp = comp or {}
             div_code = comp.get('divisionCode')
             div_name = comp.get('divisionName')
-            budget = comp.get('budget', 0)
+            budget = comp.get('totalBudget', comp.get('budget', 0))
+            line_items = comp.get('lineItems', []) or []
+            print(f"🔍 PROJECT_ANALYSIS_DEBUG: Division {div_code} - Budget: ${budget:,}, LineItems: {len(line_items)}")
             quotes = comp.get('quotes', []) or []
             division_quotes = comp.get('divisionQuotes', []) or []
             subcategory_quotes = comp.get('subcategoryQuotes', []) or []
             
             if quotes:
                 project_context += f"\n\n{div_code} - {div_name} (${budget:,} budget):"
+                
+                # Add detailed line item breakdown if available
+                if line_items:
+                    project_context += f"\n**Line Item Budget Breakdown:**"
+                    for item in line_items:
+                        if item:
+                            item_code = item.get('lineItemCode', 'N/A')
+                            item_desc = item.get('description', 'N/A')
+                            item_budget = item.get('budget', 0)
+                            project_context += f"\n  • {item_code}: ${item_budget:,} - {item_desc}"
                 
                 # Process division-level quotes - only include quotes with valid totals
                 valid_division_quotes = []
