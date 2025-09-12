@@ -257,23 +257,34 @@ export default function WorkingAIPanel({
         </div>
 
         <div className="p-4 border-t bg-white">
-          <div className="mb-2">
+          <div className="mb-2 flex items-center justify-between">
             <div className="text-sm font-medium text-gray-700">💬 Ask me about your project:</div>
+            <button
+              onClick={() => {
+                setMessages([]);
+                setInputMessage('');
+                loadQuoteContext();
+              }}
+              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+              title="Start new conversation"
+            >
+              🔄 Refresh
+            </button>
           </div>
           
           <div className="flex gap-3">
-            <input
-              type="text"
+            <textarea
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyPress}
               placeholder="e.g., Compare all Division 04 quotes, Which vendor offers best value?"
-              className="flex-1 border-2 border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 border-2 border-blue-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              rows={2}
             />
             <button
               onClick={sendMessage}
               disabled={!inputMessage.trim() || isLoading}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium self-end"
             >
               {isLoading ? 'Sending...' : 'Send'}
             </button>
