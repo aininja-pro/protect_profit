@@ -694,13 +694,7 @@ export default function DivisionQuoteSection({
                   onClick={() => handleUploadQuote()}
                   className="px-3 py-2 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 flex items-center gap-1"
                 >
-                  📎 Upload Division Quote
-                </button>
-                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                  ➕ Add Vendor
-                </button>
-                <button className="px-3 py-2 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50">
-                  📧 Send Reminders
+                  Upload Quote
                 </button>
               </div>
               
