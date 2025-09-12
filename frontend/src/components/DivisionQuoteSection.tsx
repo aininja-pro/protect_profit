@@ -55,6 +55,10 @@ export default function DivisionQuoteSection({
   // Enhanced scope selection state
   const [scopeType, setScopeType] = useState<'complete_division' | 'specific_items'>('complete_division');
   const [selectedScopeItems, setSelectedScopeItems] = useState<string[]>([]);
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState<'vendor' | 'price' | 'scope' | 'variance'>('vendor');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [scopeBudgetTotal, setScopeBudgetTotal] = useState<number>(0);
   
   // Quote management state
@@ -205,6 +209,47 @@ export default function DivisionQuoteSection({
       setDivisionQuotes([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Sorting function
+  const sortQuotes = (quotes: DivisionQuote[]) => {
+    return quotes.sort((a, b) => {
+      let aValue: any, bValue: any;
+      
+      switch (sortBy) {
+        case 'vendor':
+          aValue = a.vendor_name.toLowerCase();
+          bValue = b.vendor_name.toLowerCase();
+          break;
+        case 'price':
+          aValue = a.total_price;
+          bValue = b.total_price;
+          break;
+        case 'scope':
+          aValue = a.scope_info?.description || a.vendor_name;
+          bValue = b.scope_info?.description || b.vendor_name;
+          break;
+        case 'variance':
+          aValue = a.variance_percent || 0;
+          bValue = b.variance_percent || 0;
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  const handleSort = (newSortBy: 'vendor' | 'price' | 'scope' | 'variance') => {
+    if (sortBy === newSortBy) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('asc');
     }
   };
 
@@ -539,8 +584,30 @@ export default function DivisionQuoteSection({
             <h4 className="font-semibold text-purple-800">
               Division {division.divisionCode} - Complete Package Quotes
             </h4>
-            <div className="text-sm text-gray-600">
-              Budget: ${division.divisionTotal?.toLocaleString() || '0'}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Sort by:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => handleSort(e.target.value as 'vendor' | 'price' | 'scope' | 'variance')}
+                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                >
+                  <option value="vendor">Vendor</option>
+                  <option value="price">Price</option>
+                  <option value="scope">Scope</option>
+                  <option value="variance">Variance</option>
+                </select>
+                <button
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  className="text-sm text-gray-600 hover:text-gray-800"
+                  title={`Sort ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
+                >
+                  {sortOrder === 'asc' ? '↑' : '↓'}
+                </button>
+              </div>
+              <div className="text-sm text-gray-600">
+                Budget: ${division.divisionTotal?.toLocaleString() || '0'}
+              </div>
             </div>
           </div>
           
@@ -553,7 +620,7 @@ export default function DivisionQuoteSection({
             </div>
           ) : (
             <div className="space-y-4">
-              {divisionQuotes.map((quote, idx) => {
+              {sortQuotes([...divisionQuotes]).map((quote, idx) => {
                 const quoteKey = quote.quote_id || `quote-${idx}`;
                 const isExpanded = expandedQuotes.has(quoteKey);
                 const hasLineItems = quote.line_items && quote.line_items.length > 0;
