@@ -204,7 +204,7 @@ Be concise, professional, and focus on helping make the best procurement decisio
                     # Show specific line item budget mapping
                     variance_pct = ((total - scope_budget) / scope_budget * 100) if scope_budget > 0 else 0
                     matched_budget_text = ", ".join([f"{item.get('name')}: ${item.get('budget', 0):,}" for item in matched_items])
-                    quote_analysis += f"\n- {vendor}: ${total:,} covers {scope_items} → Mapped to: {matched_budget_text} (Total scope budget: ${scope_budget:,}) = {variance_pct:+.1f}% variance"
+                    quote_analysis += f"\n- {vendor}: ${total:,} covers {scope_items} - Mapped to: {matched_budget_text} (Total scope budget: ${scope_budget:,}) = {variance_pct:+.1f}% variance"
                 elif coverage_type == 'specific_items':
                     variance_pct = ((total - scope_budget) / scope_budget * 100) if scope_budget > 0 else 0
                     quote_analysis += f"\n- {vendor}: ${total:,} covers '{scope_items}' (${scope_budget:,} scope budget) = {variance_pct:+.1f}% variance"
@@ -325,7 +325,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                             item_code = item.get('lineItemCode', 'N/A')
                             item_desc = item.get('description', 'N/A')
                             item_budget = item.get('budget', 0)
-                            project_context += f"\n  • {item_code}: ${item_budget:,} - {item_desc}"
+                            project_context += f"\n  - {item_code}: ${item_budget:,} - {item_desc}"
                 
                 # Process division-level quotes - only include quotes with valid totals
                 valid_division_quotes = []
@@ -363,7 +363,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                         variance_pct = (variance / budget * 100) if budget > 0 else 0
                         
                         project_context += f"""
-    • {vendor_name}: ${total_quote:,} ({variance_pct:+.1f}% vs budget)"""
+    - {vendor_name}: ${total_quote:,} ({variance_pct:+.1f}% vs budget)"""
                         
                         # Add rich scope details from our enhanced parsing
                         normalized_json = quote.get('normalized_json') or {}
@@ -405,7 +405,7 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
                             total_quote = pricing_summary.get('total_amount', 0) or 0
                         
                         project_context += f"""
-    • {vendor_name} (Subcategory {subcategory_id}): ${total_quote:,} - {scope_type}"""
+    - {vendor_name} (Subcategory {subcategory_id}): ${total_quote:,} - {scope_type}"""
 
     project_context += "\n\nProvide specific insights, recommendations, and analysis based on this comprehensive project data."
     
@@ -505,9 +505,9 @@ def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
         response = f"""**Vendor & Pricing Analysis for {project_name}**
 
 **Current Status:**
-• Total Project Budget: ${total_budget:,}
-• Quotes Received: {total_quotes} across {divisions_with_quotes} divisions
-• Divisions: {len(divisions)} total
+- Total Project Budget: ${total_budget:,}
+- Quotes Received: {total_quotes} across {divisions_with_quotes} divisions
+- Divisions: {len(divisions)} total
 
 **Division Breakdown:**"""
         
@@ -519,7 +519,7 @@ def generate_intelligent_fallback(message: str, context: Dict[str, Any]) -> str:
             quote_count = status.get('quote_count', 0)
             
             response += f"""
-• **Division {div_code} - {div_name}**: ${div_budget:,} budget, {quote_count} quotes"""
+- **Division {div_code} - {div_name}**: ${div_budget:,} budget, {quote_count} quotes"""
 
         response += """\n\n**AI Analysis Currently Unavailable**
 The detailed AI analysis service is temporarily offline, but you have access to all project data. Try your question again in a moment for comprehensive vendor comparisons and recommendations."""
@@ -531,9 +531,9 @@ The detailed AI analysis service is temporarily offline, but you have access to 
         response = f"""**Budget Analysis for {project_name}**
 
 **Budget Overview:**
-• Project Subtotal: ${context.get('projectTotals', {}).get('projectSubtotal', 0):,}
-• Overhead & Profit: ${context.get('projectTotals', {}).get('overheadAndProfit', 0):,}
-• **Total Budget: ${total_budget:,}**
+- Project Subtotal: ${context.get('projectTotals', {}).get('projectSubtotal', 0):,}
+- Overhead & Profit: ${context.get('projectTotals', {}).get('overheadAndProfit', 0):,}
+- **Total Budget: ${total_budget:,}**
 
 **Risk Assessment:**"""
         
@@ -552,10 +552,10 @@ The detailed AI analysis service is temporarily offline, but you have access to 
             
             if quote_count == 0:
                 response += f"""
-• Division {div_code} ({div_name}): ${div_budget:,} - **NO QUOTES**"""
+- Division {div_code} ({div_name}): ${div_budget:,} - **NO QUOTES**"""
             else:
                 response += f"""
-• Division {div_code} ({div_name}): ${div_budget:,} - {quote_count} quotes"""
+- Division {div_code} ({div_name}): ${div_budget:,} - {quote_count} quotes"""
 
         response += """\n\n**Detailed Analysis Pending**
 AI service reconnecting... Try again shortly for variance analysis and specific risk recommendations."""
@@ -585,13 +585,13 @@ AI service reconnecting... Try again shortly for variance analysis and specific 
             response += f"""
 
 **Ready for Award Decision:**
-{chr(10).join(f"• {item}" for item in ready_for_award)}"""
+{chr(10).join(f"- {item}" for item in ready_for_award)}"""
         
         if need_quotes:
             response += f"""
 
-⏳ **Still Need Quotes:**
-{chr(10).join(f"• {item}" for item in need_quotes)}"""
+**Still Need Quotes:**
+{chr(10).join(f"- {item}" for item in need_quotes)}"""
 
         response += f"""
 
@@ -610,15 +610,15 @@ The AI service will provide specific award strategies when reconnected."""
         return f"""I understand you're asking about "{message}" for {project_name}.
 
 **Available Project Data:**
-• Budget: ${total_budget:,} across {len(divisions)} divisions  
-• Quotes: {total_quotes} total received
-• Status: Ready for comprehensive analysis
+- Budget: ${total_budget:,} across {len(divisions)} divisions  
+- Quotes: {total_quotes} total received
+- Status: Ready for comprehensive analysis
 
 **AI Analysis Service Reconnecting**
 I have access to all your project data including budgets, quotes, vendor comparisons, and line-item details. Please try your question again in a moment for detailed insights and recommendations.
 
 **Quick Questions I Can Help With:**
-• Vendor performance and value analysis
-• Budget variance and risk assessment  
-• Award strategy and recommendations
-• Pricing comparisons and negotiations"""
+- Vendor performance and value analysis
+- Budget variance and risk assessment  
+- Award strategy and recommendations
+- Pricing comparisons and negotiations"""
