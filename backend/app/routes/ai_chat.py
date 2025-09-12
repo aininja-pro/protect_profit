@@ -70,6 +70,8 @@ async def ai_division_analysis(chat_request: ChatMessage):
         
         # Build division-specific analysis prompt
         system_prompt = build_division_analysis_prompt(chat_request.context)
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: System prompt length: {len(system_prompt)}")
+        print(f"🔍 DIVISION_ANALYSIS_DEBUG: System prompt preview: {system_prompt[:500]}...")
         
         # Call OpenAI for quick insights
         client = OpenAI(api_key=openai_api_key)
