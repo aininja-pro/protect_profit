@@ -204,9 +204,13 @@ CURRENT CONTEXT: Division {context.get('divisionId')} - {context.get('divisionNa
 Total Division Budget: ${context.get('totalBudget', 0):,}
 Division Quotes: {len(quotes)} received{line_items_text}{quote_analysis}
 
-IMPORTANT: When analyzing quotes, use the scope budget for variance calculations, not the total division budget. For partial scope quotes, compare against the specific line item budget, not the full division budget.
+CRITICAL ANALYSIS INSTRUCTIONS:
+- FOR SPECIFIC ITEM QUOTES: Compare quote amount ONLY against the mapped line item budget, NOT the total division budget
+- FOR COMPLETE DIVISION QUOTES: Compare against the total division budget
+- USE THE SCOPE BUDGET amounts provided in the QUOTE SCOPE ANALYSIS section above
+- Example: If DOT quotes $13,075 for "Truss Package" and the Truss Package budget is $14,000, calculate: ($13,075 - $14,000) / $14,000 = -6.6% variance
 
-You have access to detailed budget breakdowns, quote scope information, and can provide precise award strategy recommendations.
+You have detailed budget breakdowns and must use the specific scope budgets for accurate analysis.
 """
         return base_prompt + division_context
         
