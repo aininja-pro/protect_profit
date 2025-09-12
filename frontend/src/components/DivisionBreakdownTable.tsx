@@ -67,7 +67,15 @@ export default function DivisionBreakdownTable({
         const divisionResponse = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/divisions/${divisionId}/compare`);
         if (divisionResponse.ok) {
           const divisionData = await divisionResponse.json();
-          counts[`division-${division.divisionCode}`] = divisionData.vendor_quotes?.length || 0;
+          // Apply same filtering as UI: only count quotes with valid totals
+          const validQuotes = divisionData.vendor_quotes?.filter((vendorQuote: any) => {
+            let totalPrice = vendorQuote.line_items?.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0) || 0;
+            if (vendorQuote.quote_level_total > 0) {
+              totalPrice = vendorQuote.quote_level_total;
+            }
+            return totalPrice > 0;
+          }) || [];
+          counts[`division-${division.divisionCode}`] = validQuotes.length;
         }
         
         // Load subcategory quotes
