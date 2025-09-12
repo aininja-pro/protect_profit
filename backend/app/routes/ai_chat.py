@@ -260,17 +260,39 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
             
             if quotes:
                 project_context += f"\n\n{div_code} - {div_name} (${budget:,} budget):"
-                project_context += f"\n  Total Quotes: {len(quotes)} ({len(division_quotes)} division-level, {len(subcategory_quotes)} subcategory-level)"
                 
-                # Process division-level quotes
+                # Process division-level quotes - only include quotes with valid totals
+                valid_division_quotes = []
                 if division_quotes:
-                    project_context += "\n\n  **Division-Level Quotes:**"
                     for quote in division_quotes:
-                        vendor_name = quote.get('vendor_name', 'Unknown')
                         # Always prefer quote-level total when available (more reliable than line item math)
                         total_quote = sum((item.get('total_price') or 0) for item in quote.get('line_items', []) if item)
                         if quote.get('quote_level_total', 0) > 0:
                             total_quote = quote.get('quote_level_total', 0)
+                        
+                        # Only include quotes with valid totals (same filter as UI)
+                        if total_quote > 0:
+                            valid_division_quotes.append({**quote, 'calculated_total': total_quote})
+                
+                # Filter subcategory quotes to valid ones too
+                valid_subcategory_quotes = []
+                if subcategory_quotes:
+                    for quote in subcategory_quotes:
+                        total_quote = sum((item.get('total_price') or 0) for item in quote.get('line_items', []) if item)
+                        if quote.get('quote_level_total', 0) > 0:
+                            total_quote = quote.get('quote_level_total', 0)
+                        if total_quote > 0:
+                            valid_subcategory_quotes.append(quote)
+                
+                # Update count to reflect only valid quotes
+                total_valid_quotes = len(valid_division_quotes) + len(valid_subcategory_quotes)
+                project_context += f"\n  Total Quotes: {total_valid_quotes} ({len(valid_division_quotes)} division-level, {len(valid_subcategory_quotes)} subcategory-level)"
+                
+                if valid_division_quotes:
+                    project_context += "\n\n  **Division-Level Quotes:**"
+                    for quote in valid_division_quotes:
+                        vendor_name = quote.get('vendor_name', 'Unknown')
+                        total_quote = quote['calculated_total']
                         variance = total_quote - (budget or 0)
                         variance_pct = (variance / budget * 100) if budget > 0 else 0
                         
@@ -302,9 +324,9 @@ Overhead & Profit: ${project_totals.get('overheadAndProfit', 0):,}
       Work Items: {len(work_items)} items including {', '.join(work_items[:5])}{'...' if len(work_items) > 5 else ''}"""
                 
                 # Process subcategory-level quotes
-                if subcategory_quotes:
+                if valid_subcategory_quotes:
                     project_context += "\n\n  **Subcategory-Level Quotes:**"
-                    for quote in subcategory_quotes:
+                    for quote in valid_subcategory_quotes:
                         vendor_name = quote.get('vendor_name', 'Unknown')
                         subcategory_id = quote.get('subcategory_id', 'Unknown')
                         scope_type = quote.get('scope_type', 'Unknown scope')
