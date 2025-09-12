@@ -166,6 +166,7 @@ Be concise, professional, and focus on helping make the best procurement decisio
     if context_type == 'division':
         # Build dynamic line item budget breakdown
         line_items = context.get('lineItems', [])
+        print(f"🔍 AI_CONTEXT_DEBUG: Division {context.get('divisionId')} lineItems: {line_items}")
         line_items_text = ""
         if line_items:
             line_items_text = "\n\nBUDGET LINE ITEMS BREAKDOWN:"
@@ -176,6 +177,9 @@ Be concise, professional, and focus on helping make the best procurement decisio
         
         # Analyze quote coverage and scope
         quotes = context.get('quotes', [])
+        print(f"🔍 AI_CONTEXT_DEBUG: Division {context.get('divisionId')} quotes: {len(quotes)} quotes")
+        for i, q in enumerate(quotes[:2]):  # Debug first 2 quotes
+            print(f"🔍 AI_CONTEXT_DEBUG: Quote {i+1}: vendor={q.get('vendor_name')}, scopeBudget={q.get('scopeBudget')}, coverageType={q.get('coverageType')}")
         quote_analysis = ""
         if quotes:
             quote_analysis = "\n\nQUOTE SCOPE ANALYSIS:"
