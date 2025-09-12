@@ -56,6 +56,10 @@ export default function DivisionQuoteSection({
   const [scopeType, setScopeType] = useState<'complete_division' | 'specific_items'>('complete_division');
   const [selectedScopeItems, setSelectedScopeItems] = useState<string[]>([]);
   const [scopeBudgetTotal, setScopeBudgetTotal] = useState<number>(0);
+  
+  // Quote management state
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [editingVendorName, setEditingVendorName] = useState<string>('');
 
   // Helper function to format currency without decimals
   const formatCurrency = (amount: number) => {
@@ -308,6 +312,40 @@ export default function DivisionQuoteSection({
     }
   };
 
+  const handleEditVendorName = (quote: DivisionQuote) => {
+    setEditingQuoteId(quote.quote_id || null);
+    setEditingVendorName(quote.vendor_name);
+  };
+
+  const handleSaveVendorName = async (quoteId: string) => {
+    if (!editingVendorName.trim()) return;
+    
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8001/api'}/quotes/${quoteId}/vendor-name`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vendor_name: editingVendorName.trim() })
+      });
+      
+      if (response.ok) {
+        // Reload quotes to reflect name change
+        await loadDivisionQuotes();
+        setEditingQuoteId(null);
+        setEditingVendorName('');
+      } else {
+        alert('Failed to update vendor name');
+      }
+    } catch (error) {
+      console.error('Edit failed:', error);
+      alert('Failed to update vendor name');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingQuoteId(null);
+    setEditingVendorName('');
+  };
+
   const handleFileUpload = async () => {
     if (!selectedFile || !selectedVendor.trim()) {
       alert('Please select a file and enter vendor name');
@@ -472,15 +510,58 @@ export default function DivisionQuoteSection({
                 const hasLineItems = quote.line_items && quote.line_items.length > 0;
                 
                 return (
-                  <div key={idx} className="bg-white rounded-lg border border-gray-200 border-l-4 border-l-purple-400 shadow-sm hover:shadow-md transition-shadow">
+                  <div key={idx} className="group bg-white rounded-lg border border-gray-200 border-l-4 border-l-purple-400 shadow-sm hover:shadow-md transition-shadow">
                     {/* Main Quote Row */}
                     <div className="flex items-center justify-between p-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <div className="font-medium text-gray-900">
-                            {quote.vendor_name}
-                            {quote.scope_type === 'specific_items' && quote.scope_info && (
-                              <span className="font-normal text-gray-600"> - {quote.scope_info.description.split('(')[0].replace('Covers: ', '')}</span>
+                            {editingQuoteId === quote.quote_id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editingVendorName}
+                                  onChange={(e) => setEditingVendorName(e.target.value)}
+                                  className="px-2 py-1 border rounded text-sm"
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') handleSaveVendorName(quote.quote_id!);
+                                    if (e.key === 'Escape') handleCancelEdit();
+                                  }}
+                                  autoFocus
+                                />
+                                <button
+                                  onClick={() => handleSaveVendorName(quote.quote_id!)}
+                                  className="text-green-600 hover:text-green-800 text-xs"
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={handleCancelEdit}
+                                  className="text-gray-600 hover:text-gray-800 text-xs"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span 
+                                  onClick={() => handleEditVendorName(quote)}
+                                  className="cursor-pointer hover:text-blue-600"
+                                  title="Click to edit vendor name"
+                                >
+                                  {quote.vendor_name}
+                                </span>
+                                {quote.scope_type === 'specific_items' && quote.scope_info && (
+                                  <span className="font-normal text-gray-600"> - {quote.scope_info.description.split('(')[0].replace('Covers: ', '')}</span>
+                                )}
+                                <button
+                                  onClick={() => handleDeleteQuote(quote)}
+                                  className="text-red-500 hover:text-red-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                  title="Delete quote"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             )}
                           </div>
                           {hasLineItems && (

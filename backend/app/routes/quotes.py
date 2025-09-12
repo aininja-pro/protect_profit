@@ -536,6 +536,38 @@ async def cleanup_division_quotes(division_code: str, project_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cleanup error: {str(e)}")
 
+@router.patch("/{quote_id}/vendor-name")
+async def update_vendor_name(quote_id: str = Path(...), request: Dict[str, Any] = {}):
+    """Update vendor name for a quote"""
+    try:
+        supabase = get_supabase_client()
+        
+        new_vendor_name = request.get('vendor_name', '').strip()
+        if not new_vendor_name:
+            raise HTTPException(status_code=400, detail="Vendor name is required")
+        
+        # Verify quote exists
+        quote_check = supabase.table("vendor_quotes").select("id, vendor_name").eq("id", quote_id).execute()
+        if not quote_check.data:
+            raise HTTPException(status_code=404, detail="Quote not found")
+        
+        old_name = quote_check.data[0]["vendor_name"]
+        
+        # Update vendor name
+        supabase.table("vendor_quotes").update({"vendor_name": new_vendor_name}).eq("id", quote_id).execute()
+        
+        return {
+            "message": "Vendor name updated successfully",
+            "quote_id": quote_id,
+            "old_name": old_name,
+            "new_name": new_vendor_name
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating vendor name: {str(e)}")
+
 @router.post("/{quote_id}/parse")
 async def parse_quote(quote_id: str = Path(...)):
     """Extract and normalize quote data using AI"""
